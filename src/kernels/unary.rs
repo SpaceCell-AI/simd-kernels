@@ -725,7 +725,7 @@ mod tests {
         let mut arr = BooleanArray::from_slice(&[false, false, true, true]);
         arr.null_mask = Some(bm(&[true, false, true, true]));
         let out = unary_not_bool::<W64>((&arr, 0, arr.len())).unwrap();
-        assert_eq!(out.data.as_slice(), &[0b00001100]);
+        assert_eq!(out.data.as_slice(), &[0b00000011]);
         assert_eq!(out.null_mask, arr.null_mask);
     }
 

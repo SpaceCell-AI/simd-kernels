@@ -631,7 +631,7 @@ pub fn wishart_pdf(
 
     // normalisation constant
     let half_df = df * 0.5;
-    let ln_norm = half_df * d as f64 * df.ln()  // 2^{νd/2} in denom -> −(νd/2) ln2
+    let ln_norm = half_df * d as f64 * 2.0_f64.ln()  // 2^{νd/2} in denom -> −(νd/2) ln2
         + ln_multivariate_gamma(d, half_df)
         + half_df * log_det_sigma;
 
@@ -746,7 +746,7 @@ pub fn wishart_sample(
             for j in 0..=i {
                 let mut sum = 0.0;
                 for k in 0..=j {
-                    sum += a[i * d + k] * b[k * d + j];
+                    sum += a[k * d + i] * b[k * d + j];
                 }
                 m[i * d + j] = sum;
             }
@@ -1136,7 +1136,6 @@ pub fn dirichlet_pdf(
             "dirichlet_pdf: dimension mismatch".into(),
         ));
     }
-    let d = alpha.len();
     // check support
     let mut sum_x = 0.0;
     for &xi in x {
@@ -1158,7 +1157,7 @@ pub fn dirichlet_pdf(
         sum_alpha += a;
     }
     let ln_norm =
-        ln_multivariate_gamma(d, sum_alpha) - alpha.iter().map(|&a| ln_gamma(a)).sum::<f64>();
+        ln_gamma(sum_alpha) - alpha.iter().map(|&a| ln_gamma(a)).sum::<f64>();
 
     let mut log_pdf = 0.0;
     for (&xi, &a) in x.iter().zip(alpha.iter()) {

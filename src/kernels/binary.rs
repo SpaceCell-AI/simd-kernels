@@ -172,18 +172,35 @@ where
             out.null_mask = mask.cloned();
             Ok(out)
         }
-        ComparisonOperator::IsNull => Ok(BooleanArray {
-            data: new_bool_bitmask(len),
-            null_mask: mask.cloned(),
-            len,
-            _phantom: std::marker::PhantomData,
-        }),
-        ComparisonOperator::IsNotNull => Ok(BooleanArray {
-            data: full_bool_bitmask(len),
-            null_mask: mask.cloned(),
-            len,
-            _phantom: std::marker::PhantomData,
-        }),
+        ComparisonOperator::IsNull => {
+            let data = match mask {
+                Some(m) => {
+                    #[cfg(feature = "simd")]
+                    { minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, len)) }
+                    #[cfg(not(feature = "simd"))]
+                    { not_mask((m, 0, len)) }
+                }
+                None => new_bool_bitmask(len),
+            };
+            Ok(BooleanArray {
+                data,
+                null_mask: None,
+                len,
+                _phantom: std::marker::PhantomData,
+            })
+        }
+        ComparisonOperator::IsNotNull => {
+            let data = match mask {
+                Some(m) => m.slice_clone(0, len),
+                None => full_bool_bitmask(len),
+            };
+            Ok(BooleanArray {
+                data,
+                null_mask: None,
+                len,
+                _phantom: std::marker::PhantomData,
+            })
+        }
         _ => {
             let mut out = cmp_numeric(lhs, rhs, mask, op)?;
             out.null_mask = mask.cloned();
@@ -238,18 +255,35 @@ where
             out.null_mask = mask.cloned();
             Ok(out)
         }
-        ComparisonOperator::IsNull => Ok(BooleanArray {
-            data: new_bool_bitmask(len),
-            null_mask: mask.cloned(),
-            len,
-            _phantom: std::marker::PhantomData,
-        }),
-        ComparisonOperator::IsNotNull => Ok(BooleanArray {
-            data: full_bool_bitmask(len),
-            null_mask: mask.cloned(),
-            len,
-            _phantom: std::marker::PhantomData,
-        }),
+        ComparisonOperator::IsNull => {
+            let data = match mask {
+                Some(m) => {
+                    #[cfg(feature = "simd")]
+                    { minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, len)) }
+                    #[cfg(not(feature = "simd"))]
+                    { not_mask((m, 0, len)) }
+                }
+                None => new_bool_bitmask(len),
+            };
+            Ok(BooleanArray {
+                data,
+                null_mask: None,
+                len,
+                _phantom: std::marker::PhantomData,
+            })
+        }
+        ComparisonOperator::IsNotNull => {
+            let data = match mask {
+                Some(m) => m.slice_clone(0, len),
+                None => full_bool_bitmask(len),
+            };
+            Ok(BooleanArray {
+                data,
+                null_mask: None,
+                len,
+                _phantom: std::marker::PhantomData,
+            })
+        }
         ComparisonOperator::Equals | ComparisonOperator::NotEquals => {
             let mut out = cmp_numeric(lhs, rhs, mask, op)?;
             // Patch NaN-pairs for legacy semantics
@@ -473,18 +507,35 @@ pub fn apply_cmp_str<T: Integer>(
             }
             Ok(b)
         }
-        ComparisonOperator::IsNull => Ok(BooleanArray {
-            data: new_bool_bitmask(llen),
-            null_mask: null_mask.clone(),
-            len: llen,
-            _phantom: std::marker::PhantomData,
-        }),
-        ComparisonOperator::IsNotNull => Ok(BooleanArray {
-            data: full_bool_bitmask(llen),
-            null_mask: null_mask.clone(),
-            len: llen,
-            _phantom: std::marker::PhantomData,
-        }),
+        ComparisonOperator::IsNull => {
+            let data = match null_mask.as_ref() {
+                Some(m) => {
+                    #[cfg(feature = "simd")]
+                    { minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, llen)) }
+                    #[cfg(not(feature = "simd"))]
+                    { not_mask((m, 0, llen)) }
+                }
+                None => new_bool_bitmask(llen),
+            };
+            return Ok(BooleanArray {
+                data,
+                null_mask: None,
+                len: llen,
+                _phantom: std::marker::PhantomData,
+            });
+        }
+        ComparisonOperator::IsNotNull => {
+            let data = match null_mask.as_ref() {
+                Some(m) => m.slice_clone(0, llen),
+                None => full_bool_bitmask(llen),
+            };
+            return Ok(BooleanArray {
+                data,
+                null_mask: None,
+                len: llen,
+                _phantom: std::marker::PhantomData,
+            });
+        }
         _ => cmp_str_str((larr, loff, llen), (rarr, roff, rlen), op),
     }?;
     out.null_mask = null_mask;
@@ -611,18 +662,35 @@ pub fn apply_cmp_dict<T: Integer + Hash>(
             }
             Ok(b)
         }
-        ComparisonOperator::IsNull => Ok(BooleanArray {
-            data: new_bool_bitmask(llen),
-            null_mask: null_mask.clone(),
-            len: llen,
-            _phantom: std::marker::PhantomData,
-        }),
-        ComparisonOperator::IsNotNull => Ok(BooleanArray {
-            data: full_bool_bitmask(llen),
-            null_mask: null_mask.clone(),
-            len: llen,
-            _phantom: std::marker::PhantomData,
-        }),
+        ComparisonOperator::IsNull => {
+            let data = match null_mask.as_ref() {
+                Some(m) => {
+                    #[cfg(feature = "simd")]
+                    { minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, llen)) }
+                    #[cfg(not(feature = "simd"))]
+                    { not_mask((m, 0, llen)) }
+                }
+                None => new_bool_bitmask(llen),
+            };
+            return Ok(BooleanArray {
+                data,
+                null_mask: None,
+                len: llen,
+                _phantom: std::marker::PhantomData,
+            });
+        }
+        ComparisonOperator::IsNotNull => {
+            let data = match null_mask.as_ref() {
+                Some(m) => m.slice_clone(0, llen),
+                None => full_bool_bitmask(llen),
+            };
+            return Ok(BooleanArray {
+                data,
+                null_mask: None,
+                len: llen,
+                _phantom: std::marker::PhantomData,
+            });
+        }
         _ => cmp_dict_dict((larr, loff, llen), (rarr, roff, rlen), op),
     }?;
     out.null_mask = null_mask;
@@ -712,17 +780,17 @@ mod tests {
     #[test]
     fn test_apply_cmp_numeric_isnull_isnotnull() {
         let a = vec64![1, 2, 3];
-        let mask = bm(&[true, false, true]);
+        let mask = bm(&[true, false, true]); // position 1 is null
         let arr = apply_cmp(&a, &a, Some(&mask), ComparisonOperator::IsNull).unwrap();
-        assert_eq!(arr.data.get(0), false);
-        assert_eq!(arr.data.get(1), false);
-        assert_eq!(arr.data.get(2), false);
-        assert_eq!(arr.null_mask, Some(mask.clone()));
+        assert_eq!(arr.data.get(0), false); // present -> not null
+        assert_eq!(arr.data.get(1), true);  // absent -> is null
+        assert_eq!(arr.data.get(2), false); // present -> not null
+        assert_eq!(arr.null_mask, None);    // result is always valid
         let arr = apply_cmp(&a, &a, Some(&mask), ComparisonOperator::IsNotNull).unwrap();
-        assert_eq!(arr.data.get(0), true);
-        assert_eq!(arr.data.get(1), true);
-        assert_eq!(arr.data.get(2), true);
-        assert_eq!(arr.null_mask, Some(mask.clone()));
+        assert_eq!(arr.data.get(0), true);  // present -> is not null
+        assert_eq!(arr.data.get(1), false); // absent -> is null
+        assert_eq!(arr.data.get(2), true);  // present -> is not null
+        assert_eq!(arr.null_mask, None);    // result is always valid
     }
 
     #[test]

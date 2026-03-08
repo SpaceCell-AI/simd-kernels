@@ -1113,7 +1113,7 @@ where
 
     let null_mask = arr.null_mask.as_ref().map(|nm| nm.slice_clone(offset, len));
 
-    let data = if null_mask.is_none() {
+    let data = {
         #[cfg(feature = "simd")]
         {
             minarrow::kernels::bitmask::simd::not_mask_simd::<LANES>((&arr.data, offset, len))
@@ -1122,9 +1122,6 @@ where
         {
             minarrow::kernels::bitmask::std::not_mask((&arr.data, offset, len))
         }
-    } else {
-        // clone window – no modifications
-        arr.data.slice_clone(offset, len)
     };
 
     Ok(BooleanArray {

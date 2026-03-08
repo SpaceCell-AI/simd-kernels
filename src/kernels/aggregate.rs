@@ -649,8 +649,186 @@ macro_rules! stat_moments {
     };
 }
 
-/// Generates a variance function using stat moments.
-/// Generates both population and sample variance for a numeric type.
+/// SIMD-accelerated sum of squared deviations from a known mean for float types.
+/// Second pass of the two-pass numerically stable variance algorithm.
+macro_rules! impl_sum_sq_dev_float {
+    ($name:ident, $ty:ty, $LANES:expr) => {
+        #[inline(always)]
+        fn $name(data: &[$ty], mask: Option<&Bitmask>, null_count: Option<usize>, mean: f64) -> f64 {
+            let has_nulls = has_nulls(null_count, mask);
+
+            #[cfg(feature = "simd")]
+            {
+                if is_simd_aligned(data) {
+                    type V<const L: usize> = Simd<$ty, L>;
+                    type M<const L: usize> = <$ty as SimdElement>::Mask;
+                    const N: usize = $LANES;
+                    let len = data.len();
+                    let mut i = 0;
+                    let mut acc = 0.0_f64;
+                    let mut comp = 0.0_f64;
+                    let mean_v = Simd::<f64, N>::splat(mean);
+
+                    if !has_nulls {
+                        while i + N <= len {
+                            let v = V::<N>::from_slice(&data[i..i + N]);
+                            let dv = v.cast::<f64>() - mean_v;
+                            neumaier_add(&mut acc, &mut comp, (dv * dv).reduce_sum());
+                            i += N;
+                        }
+                        for &v in &data[i..] {
+                            let d = v as f64 - mean;
+                            neumaier_add(&mut acc, &mut comp, d * d);
+                        }
+                    } else {
+                        let mb = mask.expect("Mask must be Some if nulls are present");
+                        let mask_bytes = mb.as_bytes();
+                        while i + N <= len {
+                            let v = V::<N>::from_slice(&data[i..i + N]);
+                            let lane_mask: Mask<M<N>, N> =
+                                bitmask_to_simd_mask::<N, M<N>>(mask_bytes, i, len);
+                            let ones = V::<N>::splat(1.0 as $ty);
+                            let zeros = V::<N>::splat(0.0 as $ty);
+                            let mask_f = lane_mask.select(ones, zeros).cast::<f64>();
+                            let dv = (v.cast::<f64>() - mean_v) * mask_f;
+                            neumaier_add(&mut acc, &mut comp, (dv * dv).reduce_sum());
+                            i += N;
+                        }
+                        for j in i..len {
+                            if unsafe { mb.get_unchecked(j) } {
+                                let d = data[j] as f64 - mean;
+                                neumaier_add(&mut acc, &mut comp, d * d);
+                            }
+                        }
+                    }
+                    return acc + comp;
+                }
+            }
+
+            // Scalar fallback
+            let mut acc = 0.0_f64;
+            let mut comp = 0.0_f64;
+            if !has_nulls {
+                for &v in data {
+                    let d = v as f64 - mean;
+                    neumaier_add(&mut acc, &mut comp, d * d);
+                }
+            } else {
+                let mb = mask.expect("Mask must be Some if nulls are present");
+                for (i, &v) in data.iter().enumerate() {
+                    if unsafe { mb.get_unchecked(i) } {
+                        let d = v as f64 - mean;
+                        neumaier_add(&mut acc, &mut comp, d * d);
+                    }
+                }
+            }
+            acc + comp
+        }
+    };
+}
+
+/// SIMD-accelerated sum of squared deviations from a known mean for integer types.
+macro_rules! impl_sum_sq_dev_int {
+    ($name:ident, $ty:ty, $LANES:expr, $mask_ty:ty) => {
+        #[inline(always)]
+        fn $name(data: &[$ty], mask: Option<&Bitmask>, null_count: Option<usize>, mean: f64) -> f64 {
+            let has_nulls = has_nulls(null_count, mask);
+
+            #[cfg(feature = "simd")]
+            {
+                if is_simd_aligned(data) {
+                    const N: usize = $LANES;
+                    let len = data.len();
+                    let mut i = 0;
+                    let mut acc = 0.0_f64;
+                    let mut comp = 0.0_f64;
+                    let mean_v = Simd::<f64, N>::splat(mean);
+
+                    if !has_nulls {
+                        while i + N <= len {
+                            let v = Simd::<$ty, N>::from_slice(&data[i..i + N]);
+                            let dv = v.cast::<f64>() - mean_v;
+                            neumaier_add(&mut acc, &mut comp, (dv * dv).reduce_sum());
+                            i += N;
+                        }
+                        for &v in &data[i..] {
+                            let d = v as f64 - mean;
+                            neumaier_add(&mut acc, &mut comp, d * d);
+                        }
+                    } else {
+                        let mb = mask.expect("Mask must be Some if nulls are present");
+                        let mask_bytes = &mb.bits;
+                        while i + N <= len {
+                            let v = Simd::<$ty, N>::from_slice(&data[i..i + N]);
+                            let lane_mask: Mask<$mask_ty, N> =
+                                bitmask_to_simd_mask::<N, $mask_ty>(mask_bytes, i, len);
+                            let ones = Simd::<$ty, N>::splat(1 as $ty);
+                            let zeros = Simd::<$ty, N>::splat(0 as $ty);
+                            let mask_f = lane_mask.select(ones, zeros).cast::<f64>();
+                            let dv = (v.cast::<f64>() - mean_v) * mask_f;
+                            neumaier_add(&mut acc, &mut comp, (dv * dv).reduce_sum());
+                            i += N;
+                        }
+                        for j in i..len {
+                            if unsafe { mb.get_unchecked(j) } {
+                                let d = data[j] as f64 - mean;
+                                neumaier_add(&mut acc, &mut comp, d * d);
+                            }
+                        }
+                    }
+                    return acc + comp;
+                }
+            }
+
+            // Scalar fallback
+            let mut acc = 0.0_f64;
+            let mut comp = 0.0_f64;
+            if !has_nulls {
+                for &v in data {
+                    let d = v as f64 - mean;
+                    neumaier_add(&mut acc, &mut comp, d * d);
+                }
+            } else {
+                let mb = mask.expect("Mask must be Some if nulls are present");
+                for (i, &v) in data.iter().enumerate() {
+                    if unsafe { mb.get_unchecked(i) } {
+                        let d = v as f64 - mean;
+                        neumaier_add(&mut acc, &mut comp, d * d);
+                    }
+                }
+            }
+            acc + comp
+        }
+    };
+}
+
+/// Dispatches to the right sum-of-squared-deviations function by type.
+macro_rules! sum_sq_dev {
+    (f64 => $d:expr, $m:expr, $nc:expr, $mean:expr) => {
+        sum_sq_dev_f64($d, $m, $nc, $mean)
+    };
+    (f32 => $d:expr, $m:expr, $nc:expr, $mean:expr) => {
+        sum_sq_dev_f32($d, $m, $nc, $mean)
+    };
+    (i64 => $d:expr, $m:expr, $nc:expr, $mean:expr) => {
+        sum_sq_dev_i64($d, $m, $nc, $mean)
+    };
+    (u64 => $d:expr, $m:expr, $nc:expr, $mean:expr) => {
+        sum_sq_dev_u64($d, $m, $nc, $mean)
+    };
+    (i32 => $d:expr, $m:expr, $nc:expr, $mean:expr) => {
+        sum_sq_dev_i32($d, $m, $nc, $mean)
+    };
+    (u32 => $d:expr, $m:expr, $nc:expr, $mean:expr) => {
+        sum_sq_dev_u32($d, $m, $nc, $mean)
+    };
+}
+
+/// Generates a variance function using a two-pass algorithm.
+/// Pass 1: SIMD-accelerated mean via stat_moments.
+/// Pass 2: SIMD-accelerated sum of squared deviations from mean.
+/// Avoids catastrophic cancellation that the textbook formula suffers
+/// when the mean is large relative to the spread.
 macro_rules! impl_variance {
     ($ty:ident, $fn_var:ident) => {
         #[doc = concat!("Returns the variance for `", stringify!($ty), "`; if `sample` is true, uses Bessel's correction (n-1).")]
@@ -661,13 +839,17 @@ macro_rules! impl_variance {
             null_count: Option<usize>,
             sample: bool,
         ) -> Option<f64> {
-            let (s, s2, n) = stat_moments!($ty => data, mask, null_count);
+            let (s, _, n) = stat_moments!($ty => data, mask, null_count);
             if n == 0 || (sample && n < 2) {
                 None
-            } else if sample {
-                Some((s2 - s * s / n as f64) / (n as f64 - 1.0))
             } else {
-                Some((s2 - s * s / n as f64) / n as f64)
+                let mean = s / n as f64;
+                let m2 = sum_sq_dev!($ty => data, mask, null_count, mean);
+                if sample {
+                    Some(m2 / (n as f64 - 1.0))
+                } else {
+                    Some(m2 / n as f64)
+                }
             }
         }
     };
@@ -2122,6 +2304,12 @@ impl_stat_moments_int!(stat_moments_i64, i64, i64, W64, i64);
 impl_stat_moments_int!(stat_moments_u64, u64, u64, W64, i64);
 impl_stat_moments_int!(stat_moments_i32, i32, i64, W32, i32);
 impl_stat_moments_int!(stat_moments_u32, u32, u64, W32, i32);
+impl_sum_sq_dev_float!(sum_sq_dev_f64, f64, W64);
+impl_sum_sq_dev_float!(sum_sq_dev_f32, f32, W32);
+impl_sum_sq_dev_int!(sum_sq_dev_i64, i64, W64, i64);
+impl_sum_sq_dev_int!(sum_sq_dev_u64, u64, W64, i64);
+impl_sum_sq_dev_int!(sum_sq_dev_i32, i32, W32, i32);
+impl_sum_sq_dev_int!(sum_sq_dev_u32, u32, W32, i32);
 impl_reduce_min_max!(reduce_min_max_i64, i64, W64, i64::MAX, i64::MIN);
 impl_reduce_min_max!(reduce_min_max_u64, u64, W64, u64::MAX, u64::MIN);
 impl_reduce_min_max!(reduce_min_max_i32, i32, W32, i32::MAX, i32::MIN);

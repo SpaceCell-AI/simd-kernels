@@ -89,7 +89,7 @@ pub fn student_t_cdf_std_to(
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
-    if df < 1.0 || !df.is_finite() {
+    if df <= 0.0 || !df.is_finite() {
         return Err(KernelError::InvalidArguments(
             "student_t_cdf: invalid df".into(),
         ));
@@ -165,7 +165,7 @@ pub fn student_t_quantile_std_to(
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
-    if df < 1.0 || !df.is_finite() {
+    if df <= 0.0 || !df.is_finite() {
         return Err(KernelError::InvalidArguments(
             "student_t_quantile: invalid df".into(),
         ));

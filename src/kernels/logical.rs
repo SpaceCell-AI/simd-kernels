@@ -858,7 +858,7 @@ pub fn cmp_dict_between<'a, T: Integer>(
         let li = loff + i;
         if !has_nulls || mask.map_or(true, |m| unsafe { m.get_unchecked(li) }) {
             let s = unsafe { larr.get_str_unchecked(li) };
-            if s > min && s <= max {
+            if s >= min && s <= max {
                 unsafe { out.set_unchecked(i, true) };
             }
         }

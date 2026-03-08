@@ -25,7 +25,6 @@ use crate::kernels::scientific::erf::erf as erf_fn;
 use crate::utils::bitmask_to_simd_mask;
 use minarrow::utils::is_simd_aligned;
 use minarrow::{Bitmask, FloatArray, Vec64};
-use std::simd::{LaneCount, SupportedLaneCount};
 
 /// Generates a mapping kernel in three variants:
 ///
@@ -71,7 +70,6 @@ macro_rules! impl_vecmap {
             null_count: Option<usize>,
         ) -> Result<(), &'static str>
         where
-            LaneCount<LANES>: SupportedLaneCount,
         {
             let len = input.len();
             assert_eq!(
@@ -206,7 +204,6 @@ macro_rules! impl_vecmap {
             null_count: Option<usize>,
         ) -> Result<FloatArray<f64>, &'static str>
         where
-            LaneCount<LANES>: SupportedLaneCount,
         {
             let len = input.len();
             // fast length‐0 case

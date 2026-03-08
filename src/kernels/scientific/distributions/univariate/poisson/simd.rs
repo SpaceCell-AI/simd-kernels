@@ -8,6 +8,7 @@
 include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 
 use std::simd::Mask;
+use std::simd::Select;
 use std::simd::cmp::SimdPartialEq;
 use std::simd::{Simd, StdFloat, num::SimdUint};
 

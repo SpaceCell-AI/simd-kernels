@@ -7,7 +7,7 @@
 //! Core utilities supporting SIMD kernel implementations with efficient memory handling,
 //! bitmask operations, and performance-critical helper functions.
 
-use std::simd::{LaneCount, Mask, MaskElement, SimdElement, SupportedLaneCount};
+use std::simd::{Mask, MaskElement, SimdElement};
 
 use minarrow::{Bitmask, Vec64};
 
@@ -28,7 +28,6 @@ pub fn bitmask_to_simd_mask<const N: usize, M>(
     logical_len: usize,
 ) -> Mask<M, N>
 where
-    LaneCount<N>: SupportedLaneCount,
     M: MaskElement + SimdElement,
 {
     let lane_limit = (offset + N).min(logical_len);
@@ -52,7 +51,6 @@ where
 #[inline(always)]
 pub fn simd_mask_to_bitmask<const N: usize, M>(mask: Mask<M, N>, len: usize) -> Bitmask
 where
-    LaneCount<N>: SupportedLaneCount,
     M: MaskElement + SimdElement,
 {
     let mut bits = Vec64::with_capacity((len + 7) / 8);

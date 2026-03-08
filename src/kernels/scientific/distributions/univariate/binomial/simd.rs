@@ -15,7 +15,7 @@
 
 use minarrow::enums::error::KernelError;
 use minarrow::{Bitmask, FloatArray, Vec64};
-use std::simd::{Simd, StdFloat, cmp::SimdPartialOrd, num::SimdFloat};
+use std::simd::{Select, Simd, StdFloat, cmp::SimdPartialOrd, num::SimdFloat};
 
 use crate::kernels::scientific::distributions::shared::scalar::{ln_gamma_simd, *};
 use crate::kernels::scientific::distributions::univariate::common::simd::{

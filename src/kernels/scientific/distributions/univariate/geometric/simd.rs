@@ -14,7 +14,7 @@ include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 const N: usize = W64;
 
 use std::simd::{
-    Mask, Simd, StdFloat,
+    Mask, Select, Simd, StdFloat,
     cmp::{SimdPartialEq, SimdPartialOrd},
     num::{SimdFloat, SimdUint},
 };

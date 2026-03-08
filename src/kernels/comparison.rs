@@ -19,7 +19,6 @@
 include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 
 // SIMD
-use core::simd::{LaneCount, SupportedLaneCount};
 use std::marker::PhantomData;
 #[cfg(feature = "simd")]
 use std::simd::{Mask, Simd};
@@ -306,7 +305,6 @@ pub fn cmp_bitmask_simd<const LANES: usize>(
     op: ComparisonOperator,
 ) -> Result<Bitmask, KernelError>
 where
-    LaneCount<LANES>: SupportedLaneCount,
 {
     // We have some code duplication here with the `std` version,
     // but unifying then means a const LANE generic on the non-simd path,
@@ -457,7 +455,6 @@ pub fn cmp_bool<const LANES: usize>(
     op: ComparisonOperator,
 ) -> Result<BooleanArray<()>, KernelError>
 where
-    LaneCount<LANES>: SupportedLaneCount,
 {
     let (lhs_arr, lhs_off, len) = lhs;
     let (rhs_arr, rhs_off, rlen) = rhs;

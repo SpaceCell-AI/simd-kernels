@@ -23,7 +23,7 @@ use std::hash::Hash;
 use std::ops::{Mul, Sub};
 #[cfg(feature = "simd")]
 use std::simd::{
-    Mask, Simd, SimdElement,
+    Mask, Select, Simd, SimdElement,
     cmp::{SimdOrd, SimdPartialOrd},
     num::{SimdFloat, SimdInt, SimdUint},
 };
@@ -77,7 +77,6 @@ pub(crate) fn neumaier_simd_add<const N: usize>(
     comp: &mut Simd<f64, N>,
     value: Simd<f64, N>,
 ) where
-    std::simd::LaneCount<N>: std::simd::SupportedLaneCount,
 {
     let t = *sum + value;
     let sum_dominant = sum.abs().simd_ge(value.abs());

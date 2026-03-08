@@ -33,7 +33,7 @@
 include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 
 #[cfg(feature = "simd")]
-use std::simd::{Mask, Simd, num::SimdFloat};
+use std::simd::{Mask, Select, Simd, num::SimdFloat};
 
 use minarrow::{Bitmask, FloatArray, Vec64};
 

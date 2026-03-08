@@ -3,7 +3,6 @@
 // Commercial licensing available. See LICENSE and LICENSING.md.
 
 #![feature(portable_simd)]
-#![feature(float_erf)]
 
 // Link OpenBLAS when linear_algebra feature is enabled.
 // This forces the linker to include the OpenBLAS symbols.

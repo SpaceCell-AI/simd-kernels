@@ -1,7 +1,7 @@
 [package]
 name = "simd-kernels"
 description = "Lightning Fast, Arrow-Compatible Compute Kernels"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 authors = ['SpaceCell Enterprises Ltd']
 license-file = "LICENSE"

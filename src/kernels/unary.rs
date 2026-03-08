@@ -21,7 +21,6 @@ include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 use std::hash::Hash;
 #[cfg(feature = "simd")]
 use std::simd::num::SimdUint;
-use std::simd::{LaneCount, SupportedLaneCount};
 
 #[cfg(feature = "fast_hash")]
 use ahash::AHashMap;
@@ -52,7 +51,7 @@ fn prealloc_vec<T: Copy>(len: usize) -> Vec64<T> {
 
 #[cfg(feature = "simd")]
 mod simd_impl {
-    use core::simd::{LaneCount, Simd, SimdElement, SupportedLaneCount};
+    use core::simd::{Simd, SimdElement};
 
     use num_traits::Zero;
 
@@ -61,7 +60,6 @@ mod simd_impl {
     pub fn negate_dense<T, const LANES: usize>(a: &[T], out: &mut [T])
     where
         T: SimdElement + core::ops::Neg<Output = T> + Copy + Zero,
-        LaneCount<LANES>: SupportedLaneCount,
         Simd<T, LANES>: core::ops::Sub<Output = Simd<T, LANES>>,
     {
         let mut i = 0;
@@ -458,7 +456,6 @@ pub fn unary_not_bool<const LANES: usize>(
     arr_window: BooleanAVT<()>,
 ) -> Result<BooleanArray<()>, KernelError>
 where
-    LaneCount<LANES>: SupportedLaneCount,
 {
     not_bool::<LANES>(arr_window)
 }

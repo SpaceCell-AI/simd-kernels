@@ -8,7 +8,7 @@
 //! Provides high-performance, reusable compute kernels that abstract the complexities
 //! of SIMD vectorisation, memory alignment, and null value handling.
 
-use std::simd::{LaneCount, Mask, Simd, SupportedLaneCount};
+use std::simd::{Mask, Select, Simd};
 
 use minarrow::{Bitmask, Vec64, utils::is_simd_aligned};
 
@@ -34,7 +34,6 @@ pub fn dense_univariate_kernel_f64_simd_to<const N: usize, FSimd, FScalar>(
     simd_body: FSimd,
     scalar_body: FScalar,
 ) where
-    LaneCount<N>: SupportedLaneCount,
     FSimd: Fn(Simd<f64, N>) -> Simd<f64, N>,
     FScalar: Fn(f64) -> f64,
 {
@@ -88,7 +87,6 @@ pub fn dense_univariate_kernel_f64_simd<const N: usize, FSimd, FScalar>(
     scalar_body: FScalar,
 ) -> (Vec64<f64>, Option<Bitmask>)
 where
-    LaneCount<N>: SupportedLaneCount,
     FSimd: Fn(Simd<f64, N>) -> Simd<f64, N>,
     FScalar: Fn(f64) -> f64,
 {
@@ -130,7 +128,6 @@ pub fn masked_univariate_kernel_f64_simd_to<const N: usize, FSimd, FScalar>(
     simd_body: FSimd,
     scalar_body: FScalar,
 ) where
-    LaneCount<N>: SupportedLaneCount,
     FSimd: Fn(Simd<f64, N>) -> Simd<f64, N>,
     FScalar: Fn(f64) -> f64,
 {
@@ -222,7 +219,6 @@ pub fn masked_univariate_kernel_f64_simd<const N: usize, FSimd, FScalar>(
     scalar_body: FScalar,
 ) -> (Vec64<f64>, Bitmask)
 where
-    LaneCount<N>: SupportedLaneCount,
     FSimd: Fn(Simd<f64, N>) -> Simd<f64, N>,
     FScalar: Fn(f64) -> f64,
 {
@@ -263,7 +259,6 @@ pub fn dense_univariate_kernel_u64_simd_to<const N: usize, FSimd, FScalar>(
     simd_body: FSimd,
     scalar_body: FScalar,
 ) where
-    LaneCount<N>: SupportedLaneCount,
     FSimd: Fn(Simd<u64, N>) -> Simd<f64, N>,
     FScalar: Fn(u64) -> f64,
 {
@@ -330,7 +325,6 @@ pub fn dense_univariate_kernel_u64_simd<const N: usize, FSimd, FScalar>(
     scalar_body: FScalar,
 ) -> (Vec64<f64>, Option<Bitmask>)
 where
-    LaneCount<N>: SupportedLaneCount,
     FSimd: Fn(Simd<u64, N>) -> Simd<f64, N>,
     FScalar: Fn(u64) -> f64,
 {
@@ -363,7 +357,6 @@ pub fn masked_univariate_kernel_u64_simd_to<const N: usize, FSimd, FScalar>(
     simd_body: FSimd,
     scalar_body: FScalar,
 ) where
-    LaneCount<N>: SupportedLaneCount,
     FSimd: Fn(Simd<u64, N>) -> Simd<f64, N>,
     FScalar: Fn(u64) -> f64,
 {
@@ -445,7 +438,6 @@ pub fn masked_univariate_kernel_u64_simd<const N: usize, FSimd, FScalar>(
     scalar_body: FScalar,
 ) -> (Vec64<f64>, Bitmask)
 where
-    LaneCount<N>: SupportedLaneCount,
     FSimd: Fn(Simd<u64, N>) -> Simd<f64, N>,
     FScalar: Fn(u64) -> f64,
 {

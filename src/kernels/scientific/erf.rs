@@ -286,8 +286,7 @@ fn fabs(x: f64) -> f64 {
 // The code is branch-free *per mask*; we evaluate every region’s
 // rational approximation only where its mask is active, then blend.
 use std::simd::{
-    LaneCount, Simd, StdFloat, SupportedLaneCount, cmp::SimdPartialOrd, num::SimdUint,
-    prelude::SimdFloat,
+    Select, Simd, StdFloat, cmp::SimdPartialOrd, num::SimdUint, prelude::SimdFloat,
 };
 
 use crate::kernels::scientific::distributions::shared::constants::SQRT_PI;
@@ -372,7 +371,6 @@ const SB: [f64; 8] = [
 #[inline(always)]
 fn hi_u32<const LANES: usize>(x: Simd<f64, LANES>) -> Simd<u32, LANES>
 where
-    LaneCount<LANES>: SupportedLaneCount,
 {
     // x.to_bits() is Simd<u64, LANES>
     (x.to_bits() >> Simd::splat(32)).cast()
@@ -381,7 +379,6 @@ where
 #[inline(always)]
 fn clear_lo32<const LANES: usize>(x: Simd<f64, LANES>) -> Simd<f64, LANES>
 where
-    LaneCount<LANES>: SupportedLaneCount,
 {
     let bits: Simd<u64, LANES> = x.to_bits();
     let mask = Simd::splat(0xffff_ffff_0000_0000_u64);
@@ -392,7 +389,6 @@ where
 #[inline(always)]
 pub fn erf_simd<const LANES: usize>(x: Simd<f64, LANES>) -> Simd<f64, LANES>
 where
-    LaneCount<LANES>: SupportedLaneCount,
 {
     // --- data-dependent masks ----------------------------------------
     let ax = x.abs();
@@ -424,7 +420,7 @@ where
             .mul_add(z, Simd::splat(QQ[0]))
             .mul_add(z, Simd::splat(1.0));
         let r1 = x + x * (p / q);
-        y = region1.cast().select(r1, y);
+        y = region1.cast::<i64>().select(r1, y);
     }
 
     // ------------ region-2  ------------------------------------------
@@ -445,7 +441,7 @@ where
             .mul_add(s, Simd::splat(QA[1]))
             .mul_add(s, Simd::splat(1.0));
         let r2 = sign * (Simd::splat(ERX) + p / q);
-        y = region2.cast().select(r2, y);
+        y = region2.cast::<i64>().select(r2, y);
     }
 
     // ------------ region-3 & 4  --------------------------------------
@@ -521,7 +517,6 @@ where
 #[inline(always)]
 pub fn erfc_simd<const LANES: usize>(x: Simd<f64, LANES>) -> Simd<f64, LANES>
 where
-    LaneCount<LANES>: SupportedLaneCount,
 {
     let ax = x.abs();
     let signneg = x.is_sign_negative();
@@ -557,8 +552,8 @@ where
         // sub-branch B :  remaining part of region-1  -------------
         let r_b = Simd::splat(0.5) - (x - Simd::splat(0.5) + x * y);
 
-        let r1 = sub_a.cast().select(r_a, r_b);
-        out = r1_mask.cast().select(r1, out);
+        let r1 = sub_a.cast::<i64>().select(r_a, r_b);
+        out = r1_mask.cast::<i64>().select(r1, out);
     }
 
     // ---------- region-2  (0.84375 ≤ |x| < 1.25) ------------------
@@ -584,7 +579,7 @@ where
         let r_neg = Simd::splat(1.0) + (Simd::splat(ERX) + t); //  x < 0
 
         let r2 = signneg.select(r_neg, r_pos);
-        out = r2_mask.cast().select(r2, out);
+        out = r2_mask.cast::<i64>().select(r2, out);
     }
 
     // ---------- region-3 & 4  (|x|≥1.25  and  <6 / ≥6) ------------

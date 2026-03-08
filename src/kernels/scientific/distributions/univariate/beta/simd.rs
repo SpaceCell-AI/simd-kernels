@@ -173,7 +173,7 @@ pub fn beta_pdf_simd(
 }
 
 /// SIMD-accelerated implementation of beta distribution CDF (zero-allocation variant).
-use core::simd::{LaneCount, Mask, SupportedLaneCount};
+use core::simd::{Mask, Select};
 
 /// Writes directly to caller-provided output buffer.
 #[inline(always)]
@@ -261,7 +261,6 @@ pub fn beta_cdf_simd(
 #[inline(always)]
 fn incomplete_beta_simd<const N: usize>(a: f64, b: f64, x: Simd<f64, N>) -> Simd<f64, N>
 where
-    LaneCount<N>: SupportedLaneCount,
 {
     let zero = Simd::splat(0.0);
     let one = Simd::splat(1.0);
@@ -319,7 +318,6 @@ fn front_factor<const N: usize>(
     div: f64,
 ) -> Simd<f64, N>
 where
-    LaneCount<N>: SupportedLaneCount,
 {
     // Implement ln/exp using elementwise ops via std::simd intrinsic methods.
     // If your toolchain lacks ln/exp on Simd, provide them via a SIMD math crate or polynomial approximations.
@@ -333,7 +331,6 @@ where
 #[inline(always)]
 fn betacf_simd<const N: usize>(a: f64, b: f64, x: Simd<f64, N>) -> Simd<f64, N>
 where
-    LaneCount<N>: SupportedLaneCount,
 {
     // Constants tuned for f64
     const MAX_ITERS: i32 = 200;

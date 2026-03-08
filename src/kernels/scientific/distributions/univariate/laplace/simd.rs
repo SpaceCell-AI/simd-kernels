@@ -16,7 +16,7 @@
 
 include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 
-use std::simd::{Simd, StdFloat, cmp::SimdPartialOrd, num::SimdFloat};
+use std::simd::{Select, Simd, StdFloat, cmp::SimdPartialOrd, num::SimdFloat};
 
 use minarrow::utils::is_simd_aligned;
 use minarrow::{Bitmask, FloatArray, Vec64};

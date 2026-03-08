@@ -12,7 +12,7 @@ include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 
 use std::{
     f64::consts::PI,
-    simd::{LaneCount, Simd, StdFloat, SupportedLaneCount},
+    simd::{Simd, StdFloat},
 };
 
 use crate::kernels::scientific::{
@@ -74,7 +74,6 @@ pub fn ln_gamma_plus1(k: f64) -> f64 {
 #[inline(always)]
 pub fn ln_gamma_simd<const N: usize>(x: Simd<f64, N>) -> Simd<f64, N>
 where
-    LaneCount<N>: SupportedLaneCount,
 {
     let z = x - Simd::splat(1.0); // x‐1
     let mut a = Simd::splat(COF[0]); // Σ c₀
@@ -717,7 +716,6 @@ pub fn ln_choose(n: u64, k: u64) -> f64 {
 #[inline(always)]
 pub fn ln_choose_simd<const N: usize>(n: Simd<f64, N>, k: Simd<f64, N>) -> Simd<f64, N>
 where
-    LaneCount<N>: SupportedLaneCount,
 {
     ln_gamma_simd(n + Simd::splat(1.0))
         - ln_gamma_simd(k + Simd::splat(1.0))

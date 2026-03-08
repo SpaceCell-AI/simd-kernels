@@ -10,7 +10,7 @@
 include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 
 use std::simd::{
-    Simd, StdFloat,
+    Select, Simd, StdFloat,
     cmp::{SimdPartialEq, SimdPartialOrd},
 };
 

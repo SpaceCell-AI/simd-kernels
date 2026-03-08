@@ -21,7 +21,6 @@ include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::marker::PhantomData;
-use std::simd::{LaneCount, SupportedLaneCount};
 #[cfg(feature = "simd")]
 use std::simd::{Mask, Simd, cmp::SimdPartialEq, cmp::SimdPartialOrd, num::SimdFloat};
 
@@ -1102,7 +1101,6 @@ pub fn not_bool<const LANES: usize>(
     src: BooleanAVT<'_, ()>,
 ) -> Result<BooleanArray<()>, KernelError>
 where
-    LaneCount<LANES>: SupportedLaneCount,
 {
     let (arr, offset, len) = src;
 
@@ -1146,7 +1144,6 @@ pub fn apply_logical_bool<const LANES: usize>(
     op: LogicalOperator,
 ) -> Result<BooleanArray<()>, KernelError>
 where
-    LaneCount<LANES>: SupportedLaneCount,
 {
     let (lhs_arr, lhs_off, len) = lhs;
     let (rhs_arr, rhs_off, rlen) = rhs;

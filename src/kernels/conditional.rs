@@ -32,7 +32,7 @@ use minarrow::{
 };
 
 #[cfg(feature = "simd")]
-use core::simd::{Mask, Simd};
+use core::simd::{Mask, Select, Simd};
 
 #[cfg(feature = "simd")]
 use minarrow::utils::is_simd_aligned;
@@ -155,7 +155,7 @@ macro_rules! impl_conditional_copy_datetime {
             {
                 // Check if both arrays are 64-byte aligned for SIMD
                 if is_simd_aligned(then_data) && is_simd_aligned(else_data) {
-                    use core::simd::{Mask, Simd};
+                    use core::simd::{Mask, Select, Simd};
 
                     const N: usize = $lanes;
                     let mut i = 0;

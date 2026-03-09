@@ -1567,9 +1567,13 @@ mod tests {
         // was used instead. Each value was independently verified by checking that
         // mpmath's CDF at the nearest f64 gives residual < 1e-17.
         // mpmath t.ppf(0.975, 10) = 2.22813885198627481543
-        assert!((student_t_quantile_scalar(0.975, 10.0) - 2.22813885198627481543e+00).abs() < 1e-14);
+        assert!(
+            (student_t_quantile_scalar(0.975, 10.0) - 2.22813885198627481543e+00).abs() < 1e-14
+        );
         // mpmath t.ppf(0.025, 10) = -2.22813885198627481543
-        assert!((student_t_quantile_scalar(0.025, 10.0) - -2.22813885198627481543e+00).abs() < 1e-14);
+        assert!(
+            (student_t_quantile_scalar(0.025, 10.0) - -2.22813885198627481543e+00).abs() < 1e-14
+        );
         // mpmath t.ppf(0.99, 5) = 3.36492999890721877776
         assert!((student_t_quantile_scalar(0.99, 5.0) - 3.36492999890721877776e+00).abs() < 1e-14);
         // mpmath t.ppf(0.01, 5) = -3.36492999890721877776
@@ -1585,42 +1589,65 @@ mod tests {
         // mpmath t.ppf(0.999, 3) = 10.2145318524073864808
         assert!((student_t_quantile_scalar(0.999, 3.0) - 1.02145318524073864808e+01).abs() < 1e-14);
         // mpmath t.ppf(0.001, 3) = -10.2145318524073864808
-        assert!((student_t_quantile_scalar(0.001, 3.0) - -1.02145318524073864808e+01).abs() < 1e-14);
+        assert!(
+            (student_t_quantile_scalar(0.001, 3.0) - -1.02145318524073864808e+01).abs() < 1e-14
+        );
         // mpmath t.ppf(0.95, 1) = 6.31375151467504291958
         assert!((student_t_quantile_scalar(0.95, 1.0) - 6.31375151467504291958e+00).abs() < 1e-14);
         // mpmath t.ppf(0.99, 100) = 2.36421736623848222081
-        assert!((student_t_quantile_scalar(0.99, 100.0) - 2.36421736623848222081e+00).abs() < 1e-14);
+        assert!(
+            (student_t_quantile_scalar(0.99, 100.0) - 2.36421736623848222081e+00).abs() < 1e-14
+        );
         // mpmath t.ppf(0.9, 2) = 1.88561808316412671260
         assert!((student_t_quantile_scalar(0.9, 2.0) - 1.88561808316412671260e+00).abs() < 1e-14);
         // mpmath t.ppf(0.999, 30) = 3.38518486682930497267
-        assert!((student_t_quantile_scalar(0.999, 30.0) - 3.38518486682930497267e+00).abs() < 1e-14);
+        assert!(
+            (student_t_quantile_scalar(0.999, 30.0) - 3.38518486682930497267e+00).abs() < 1e-14
+        );
 
         // Symmetry: ppf(q, df) == -ppf(1-q, df)
         for &df in &[1.0, 3.0, 10.0, 30.0, 100.0] {
             for &q in &[0.01, 0.1, 0.25] {
                 let lo = student_t_quantile_scalar(q, df);
                 let hi = student_t_quantile_scalar(1.0 - q, df);
-                assert!((lo + hi).abs() < 1e-12,
-                    "symmetry failed for q={}, df={}: lo={}, hi={}", q, df, lo, hi);
+                assert!(
+                    (lo + hi).abs() < 1e-12,
+                    "symmetry failed for q={}, df={}: lo={}, hi={}",
+                    q,
+                    df,
+                    lo,
+                    hi
+                );
             }
         }
 
         // Edge cases
-        assert!(student_t_quantile_scalar(0.0, 10.0).is_infinite()
-            && student_t_quantile_scalar(0.0, 10.0).is_sign_negative());
-        assert!(student_t_quantile_scalar(1.0, 10.0).is_infinite()
-            && student_t_quantile_scalar(1.0, 10.0).is_sign_positive());
+        assert!(
+            student_t_quantile_scalar(0.0, 10.0).is_infinite()
+                && student_t_quantile_scalar(0.0, 10.0).is_sign_negative()
+        );
+        assert!(
+            student_t_quantile_scalar(1.0, 10.0).is_infinite()
+                && student_t_quantile_scalar(1.0, 10.0).is_sign_positive()
+        );
         assert!(student_t_quantile_scalar(f64::NAN, 10.0).is_nan());
         assert!(student_t_quantile_scalar(0.5, 0.5).is_nan()); // df < 1
 
         // Roundtrip: CDF(quantile(q, df), df) ≈ q across varied df and q
         for &df in &[1.0, 2.0, 5.0, 10.0, 30.0, 50.0, 100.0, 500.0] {
-            for &q in &[0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.975, 0.99, 0.999] {
+            for &q in &[
+                0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.975, 0.99, 0.999,
+            ] {
                 let x = student_t_quantile_scalar(q, df);
                 let p = student_t_cdf_scalar(x, df);
-                assert!((p - q).abs() < 1e-14,
+                assert!(
+                    (p - q).abs() < 1e-14,
                     "roundtrip failed for q={}, df={}: got p={}, err={:.2e}",
-                    q, df, p, (p - q).abs());
+                    q,
+                    df,
+                    p,
+                    (p - q).abs()
+                );
             }
         }
     }

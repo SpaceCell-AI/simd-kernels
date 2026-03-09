@@ -76,8 +76,7 @@ pub(crate) fn neumaier_simd_add<const N: usize>(
     sum: &mut Simd<f64, N>,
     comp: &mut Simd<f64, N>,
     value: Simd<f64, N>,
-) where
-{
+) {
     let t = *sum + value;
     let sum_dominant = sum.abs().simd_ge(value.abs());
     let comp_a = (*sum - t) + value;
@@ -654,7 +653,12 @@ macro_rules! stat_moments {
 macro_rules! impl_sum_sq_dev_float {
     ($name:ident, $ty:ty, $LANES:expr) => {
         #[inline(always)]
-        fn $name(data: &[$ty], mask: Option<&Bitmask>, null_count: Option<usize>, mean: f64) -> f64 {
+        fn $name(
+            data: &[$ty],
+            mask: Option<&Bitmask>,
+            null_count: Option<usize>,
+            mean: f64,
+        ) -> f64 {
             let has_nulls = has_nulls(null_count, mask);
 
             #[cfg(feature = "simd")]
@@ -731,7 +735,12 @@ macro_rules! impl_sum_sq_dev_float {
 macro_rules! impl_sum_sq_dev_int {
     ($name:ident, $ty:ty, $LANES:expr, $mask_ty:ty) => {
         #[inline(always)]
-        fn $name(data: &[$ty], mask: Option<&Bitmask>, null_count: Option<usize>, mean: f64) -> f64 {
+        fn $name(
+            data: &[$ty],
+            mask: Option<&Bitmask>,
+            null_count: Option<usize>,
+            mean: f64,
+        ) -> f64 {
             let has_nulls = has_nulls(null_count, mask);
 
             #[cfg(feature = "simd")]

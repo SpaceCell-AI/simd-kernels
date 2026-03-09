@@ -37,9 +37,9 @@ use std::simd::{Mask, Select, Simd, num::SimdFloat};
 
 use minarrow::{Bitmask, FloatArray, Vec64};
 
-use crate::kernels::aggregate::{neumaier_add, sum_squares};
 #[cfg(feature = "simd")]
 use crate::kernels::aggregate::neumaier_simd_add;
+use crate::kernels::aggregate::{neumaier_add, sum_squares};
 use crate::utils::has_nulls;
 use minarrow::enums::error::KernelError;
 
@@ -81,7 +81,11 @@ pub fn dot(v1: &[f64], v2: &[f64], null_mask: Option<&Bitmask>, null_count: Opti
                 let b = Simd::<f64, N>::from_slice(&v2[i..i + N]);
                 let prod = a * b;
                 let lane_mask: Mask<i64, N> = bitmask_to_simd_mask::<N, i64>(mask_bytes, i, len);
-                neumaier_simd_add(&mut sum_v, &mut comp_v, lane_mask.select(prod, Simd::splat(0.0)));
+                neumaier_simd_add(
+                    &mut sum_v,
+                    &mut comp_v,
+                    lane_mask.select(prod, Simd::splat(0.0)),
+                );
                 i += N;
             }
         }
@@ -930,5 +934,4 @@ mod tests {
             "l2_norm off by {ulps:.1} ULPs: got {result}, expected {exact}",
         );
     }
-
 }

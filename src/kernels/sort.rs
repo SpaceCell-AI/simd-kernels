@@ -553,7 +553,11 @@ pub fn argsort_float<T: Float>(data: &[T], descending: bool) -> Vec<usize> {
 
 /// Argsort for floats with proper NaN handling and explicit stability control
 #[inline]
-pub fn argsort_float_with_stability<T: Float>(data: &[T], descending: bool, stable: bool) -> Vec<usize> {
+pub fn argsort_float_with_stability<T: Float>(
+    data: &[T],
+    descending: bool,
+    stable: bool,
+) -> Vec<usize> {
     let n = data.len();
     if n == 0 {
         return vec![];
@@ -615,7 +619,12 @@ pub fn argsort_string_array(offsets: &[usize], values: &str, descending: bool) -
 }
 
 /// Argsort for StringArray with explicit stability control
-pub fn argsort_string_array_with_stability(offsets: &[usize], values: &str, descending: bool, stable: bool) -> Vec<usize> {
+pub fn argsort_string_array_with_stability(
+    offsets: &[usize],
+    values: &str,
+    descending: bool,
+    stable: bool,
+) -> Vec<usize> {
     let n = if offsets.is_empty() {
         0
     } else {

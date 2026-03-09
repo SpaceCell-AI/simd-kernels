@@ -1084,12 +1084,7 @@ pub fn getrs(
 /// - `lda`:  Leading dimension of A (>= n).
 /// - `ipiv`: Pivot indices from dgetrf, length >= n.
 #[inline(always)]
-pub fn getri(
-    n: i32,
-    a: &mut [f64],
-    lda: i32,
-    ipiv: &[i32],
-) -> Result<(), &'static str> {
+pub fn getri(n: i32, a: &mut [f64], lda: i32, ipiv: &[i32]) -> Result<(), &'static str> {
     if a.len() < (lda * n) as usize {
         return Err("A buffer too small for GETRI");
     }
@@ -1137,8 +1132,8 @@ mod tests {
         );
     }
 
-        // 1. gemv -- matrix-vector product
-    
+    // 1. gemv -- matrix-vector product
+
     #[test]
     fn test_gemv_no_trans() {
         // A = [[1, 2, 3],   column-major: [1, 4, 2, 5, 3, 6]
@@ -1177,8 +1172,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-        // 2. gemm_4x4_microkernel -- 4x4 matrix multiply
-    
+    // 2. gemm_4x4_microkernel -- 4x4 matrix multiply
+
     #[test]
     fn test_gemm_4x4_identity() {
         // A = I4, B = I4 => C = alpha*I4 + beta*0 = I4 (alpha=1, beta=0)
@@ -1216,8 +1211,8 @@ mod tests {
         }
     }
 
-        // 3. trisolve_2x2 -- upper and lower triangular 2x2 solve
-    
+    // 3. trisolve_2x2 -- upper and lower triangular 2x2 solve
+
     #[test]
     fn test_trisolve_2x2_upper() {
         // U = [[2, 3], [0, 4]]  column-major: [2, 0, 3, 4]
@@ -1242,8 +1237,8 @@ mod tests {
         assert_near(b[1], 2.5, "x[1]");
     }
 
-        // 4. householder_apply -- QR via Householder
-    
+    // 4. householder_apply -- QR via Householder
+
     #[test]
     fn test_householder_3x2() {
         // A = [[1, 2],   column-major: [1, 3, 5, 2, 4, 6]
@@ -1275,8 +1270,8 @@ mod tests {
         assert!(a[0].abs() > 1e-10, "R[0,0] should be nonzero");
     }
 
-        // 5. cholesky_panel -- 2x2 SPD Cholesky
-    
+    // 5. cholesky_panel -- 2x2 SPD Cholesky
+
     #[test]
     fn test_cholesky_panel_2x2() {
         // A = [[4, 2], [2, 3]]  column-major: [4, 2, 2, 3]
@@ -1296,8 +1291,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-        // 6. lu_with_piv -- LU decomposition with pivoting
-    
+    // 6. lu_with_piv -- LU decomposition with pivoting
+
     #[test]
     fn test_lu_with_piv_2x2() {
         // A = [[2, 1], [6, 4]]  column-major: [2, 6, 1, 4]
@@ -1356,8 +1351,8 @@ mod tests {
         assert_near(lu11, pa[3], "PA=LU [1,1]");
     }
 
-        // 7. qr_block -- full QR factorisation
-    
+    // 7. qr_block -- full QR factorisation
+
     #[test]
     fn test_qr_block_3x2() {
         // A = [[1, 2],  column-major: [1, 3, 5, 2, 4, 6]
@@ -1381,8 +1376,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-        // 8. spd_cholesky -- 3x3 SPD Cholesky
-    
+    // 8. spd_cholesky -- 3x3 SPD Cholesky
+
     #[test]
     fn test_spd_cholesky_3x3() {
         // A = [[4, 2, 1],   column-major: [4, 2, 1, 2, 5, 3, 1, 3, 6]
@@ -1410,8 +1405,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-        // 9. spd_solve -- SPD solve Ax=b
-    
+    // 9. spd_solve -- SPD solve Ax=b
+
     #[test]
     fn test_spd_solve_2x2() {
         // A = [[4, 2], [2, 3]], b = [8, 7]
@@ -1438,8 +1433,8 @@ mod tests {
         assert_near(b[1], 7.0, "x[1]");
     }
 
-        // 10. spd_inverse -- SPD inverse
-    
+    // 10. spd_inverse -- SPD inverse
+
     #[test]
     fn test_spd_inverse_2x2() {
         // A = [[4, 2], [2, 3]]
@@ -1465,16 +1460,18 @@ mod tests {
         let a_inv = [a[0], a[1], a[1], a[3]];
         // Compute product A_orig * A_inv
         let mut prod = [0.0_f64; 4];
-        blocked_gemm(2, 2, 2, 1.0, &a_orig, 2, &a_inv, 2, 0.0, &mut prod, 2, false, false)
-            .unwrap();
+        blocked_gemm(
+            2, 2, 2, 1.0, &a_orig, 2, &a_inv, 2, 0.0, &mut prod, 2, false, false,
+        )
+        .unwrap();
         assert_near(prod[0], 1.0, "I[0,0]");
         assert_near(prod[1], 0.0, "I[1,0]");
         assert_near(prod[2], 0.0, "I[0,1]");
         assert_near(prod[3], 1.0, "I[1,1]");
     }
 
-        // 11. trisolve_upper -- 3x3 upper triangular solve
-    
+    // 11. trisolve_upper -- 3x3 upper triangular solve
+
     #[test]
     fn test_trisolve_upper_3x3() {
         // U = [[2, 1, 3],   column-major: [2, 0, 0, 1, 4, 0, 3, 2, 5]
@@ -1501,8 +1498,8 @@ mod tests {
         assert_near(b[2], 9.0, "x[2]");
     }
 
-        // 12. trisolve_lower -- 3x3 lower triangular solve
-    
+    // 12. trisolve_lower -- 3x3 lower triangular solve
+
     #[test]
     fn test_trisolve_lower_3x3() {
         // L = [[3, 0, 0],   column-major: [3, 1, 2, 0, 4, 3, 0, 0, 5]
@@ -1528,8 +1525,8 @@ mod tests {
         assert_near(b[2], 6.0, "x[2]");
     }
 
-        // 13. tri_inverse -- triangular inverse
-    
+    // 13. tri_inverse -- triangular inverse
+
     #[test]
     fn test_tri_inverse_upper_3x3() {
         // U = [[2, 1, 3],   column-major: [2, 0, 0, 1, 4, 0, 3, 2, 5]
@@ -1540,15 +1537,14 @@ mod tests {
         tri_inverse(3, &mut t, 3, true).unwrap();
         // Verify T * T_inv = I
         let mut prod = [0.0_f64; 9];
-        blocked_gemm(3, 3, 3, 1.0, &t_orig, 3, &t, 3, 0.0, &mut prod, 3, false, false).unwrap();
+        blocked_gemm(
+            3, 3, 3, 1.0, &t_orig, 3, &t, 3, 0.0, &mut prod, 3, false, false,
+        )
+        .unwrap();
         for i in 0..3 {
             for j in 0..3 {
                 let expected = if i == j { 1.0 } else { 0.0 };
-                assert_near(
-                    prod[j * 3 + i],
-                    expected,
-                    &format!("I[{i},{j}]"),
-                );
+                assert_near(prod[j * 3 + i], expected, &format!("I[{i},{j}]"));
             }
         }
     }
@@ -1563,21 +1559,20 @@ mod tests {
         tri_inverse(3, &mut t, 3, false).unwrap();
         // Verify T * T_inv = I
         let mut prod = [0.0_f64; 9];
-        blocked_gemm(3, 3, 3, 1.0, &t_orig, 3, &t, 3, 0.0, &mut prod, 3, false, false).unwrap();
+        blocked_gemm(
+            3, 3, 3, 1.0, &t_orig, 3, &t, 3, 0.0, &mut prod, 3, false, false,
+        )
+        .unwrap();
         for i in 0..3 {
             for j in 0..3 {
                 let expected = if i == j { 1.0 } else { 0.0 };
-                assert_near(
-                    prod[j * 3 + i],
-                    expected,
-                    &format!("I[{i},{j}]"),
-                );
+                assert_near(prod[j * 3 + i], expected, &format!("I[{i},{j}]"));
             }
         }
     }
 
-        // 14. blocked_gemm -- general matrix multiply
-    
+    // 14. blocked_gemm -- general matrix multiply
+
     #[test]
     fn test_blocked_gemm_3x3_times_3x2() {
         // A = [[1, 2, 3],   column-major: [1, 4, 7, 2, 5, 8, 3, 6, 9]
@@ -1639,8 +1634,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-        // 15. syrk_panel -- symmetric rank-k update
-    
+    // 15. syrk_panel -- symmetric rank-k update
+
     #[test]
     fn test_syrk_panel_aat() {
         // A (2x3) = [[1, 2, 3],   column-major: [1, 4, 2, 5, 3, 6]
@@ -1672,8 +1667,8 @@ mod tests {
         assert_near(c[2], 27.0, "c[2,0]");
     }
 
-        // 16. symeig2x2 -- 2x2 symmetric eigendecomposition
-    
+    // 16. symeig2x2 -- 2x2 symmetric eigendecomposition
+
     #[test]
     fn test_symeig2x2_known() {
         // A = [[2, 1], [1, 3]]  column-major: [2, 1, 1, 3]
@@ -1703,8 +1698,8 @@ mod tests {
         assert_near(dot, 0.0, "v1.v2 orthogonality");
     }
 
-        // 17. bidiag_reduction -- bidiagonalisation
-    
+    // 17. bidiag_reduction -- bidiagonalisation
+
     #[test]
     fn test_bidiag_reduction_3x3() {
         // A = [[1, 2, 3],   column-major: [1, 4, 7, 2, 5, 8, 3, 6, 9]
@@ -1735,8 +1730,8 @@ mod tests {
         assert!(tauq[0].abs() > 1e-10, "tauq[0] should be nonzero");
     }
 
-        // 18. svd_block -- economy SVD
-    
+    // 18. svd_block -- economy SVD
+
     #[test]
     fn test_svd_block_3x2_reconstruct() {
         // A = [[1, 2],   column-major: [1, 3, 5, 2, 4, 6]
@@ -1782,8 +1777,8 @@ mod tests {
         assert!(s[0] > 0.0, "first singular value should be positive");
     }
 
-        // 19. pca_project -- X * W projection
-    
+    // 19. pca_project -- X * W projection
+
     #[test]
     fn test_pca_project_4x3_to_4x2() {
         // X = 4x3, W = 3x2, Y = X*W should be 4x2
@@ -1826,8 +1821,8 @@ mod tests {
         }
     }
 
-        // 20. cachecov_syrk -- packed covariance accumulation
-    
+    // 20. cachecov_syrk -- packed covariance accumulation
+
     #[test]
     fn test_cachecov_syrk_3feat_4obs() {
         // X = 4x3 observation matrix (4 observations, 3 features)
@@ -1877,8 +1872,8 @@ mod tests {
         }
     }
 
-        // 21. lufactor -- LU decomposition (consistent with lu_with_piv)
-    
+    // 21. lufactor -- LU decomposition (consistent with lu_with_piv)
+
     #[test]
     fn test_lufactor_3x3() {
         // A = [[2, 1, 1],   column-major: [2, 4, 2, 1, 3, 1, 1, 1, 3]
@@ -1907,8 +1902,8 @@ mod tests {
         assert_eq!(piv1, piv2, "pivots should match");
     }
 
-        // 22. qr_panel -- panel QR (consistent with qr_block)
-    
+    // 22. qr_panel -- panel QR (consistent with qr_block)
+
     #[test]
     fn test_qr_panel_3x2() {
         let mut a = [1.0, 3.0, 5.0, 2.0, 4.0, 6.0]; // 3x2 column-major
@@ -1937,8 +1932,8 @@ mod tests {
         }
     }
 
-        // 23. qr_form_q -- form Q from QR factorisation
-    
+    // 23. qr_form_q -- form Q from QR factorisation
+
     #[test]
     fn test_qr_form_q_orthogonal() {
         // After QR on 3x2, form Q (3x2) and verify QtQ = I2
@@ -1973,8 +1968,8 @@ mod tests {
         }
     }
 
-        // 24. least_squares_qr -- overdetermined system
-    
+    // 24. least_squares_qr -- overdetermined system
+
     #[test]
     fn test_least_squares_qr_overdetermined() {
         // Solve A*x = b in least-squares sense
@@ -2009,8 +2004,8 @@ mod tests {
         assert_near(b[1], 1.8, "x[1]");
     }
 
-        // 25. symeig_full -- full symmetric eigendecomposition
-    
+    // 25. symeig_full -- full symmetric eigendecomposition
+
     #[test]
     fn test_symeig_full_3x3_trace() {
         // A = [[2, 1, 0],   column-major: [2, 1, 0, 1, 3, 1, 0, 1, 4]
@@ -2044,8 +2039,8 @@ mod tests {
         }
     }
 
-        // 26. syrk_fisher_info -- XtX Fisher information
-    
+    // 26. syrk_fisher_info -- XtX Fisher information
+
     #[test]
     fn test_syrk_fisher_info_2x3() {
         // A = 2x3 (n=2, k=3): C = A*At (2x2 symmetric)
@@ -2074,8 +2069,8 @@ mod tests {
         assert!(det >= -TOL, "det(C) >= 0 for PSD");
     }
 
-        // 27. sym_rank2k_update -- symmetric rank-2k update
-    
+    // 27. sym_rank2k_update -- symmetric rank-2k update
+
     #[test]
     fn test_sym_rank2k_update_symmetric() {
         // C = alpha * (At*B + Bt*A) + beta*C where A, B are k x n

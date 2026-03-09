@@ -288,9 +288,7 @@ fn fabs(x: f64) -> f64 {
 //
 // The code is branch-free *per mask*; we evaluate every region’s
 // rational approximation only where its mask is active, then blend.
-use std::simd::{
-    Select, Simd, StdFloat, cmp::SimdPartialOrd, num::SimdUint, prelude::SimdFloat,
-};
+use std::simd::{Select, Simd, StdFloat, cmp::SimdPartialOrd, num::SimdUint, prelude::SimdFloat};
 
 use crate::kernels::scientific::distributions::shared::constants::SQRT_PI;
 

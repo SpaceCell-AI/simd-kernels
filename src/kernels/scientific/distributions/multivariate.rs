@@ -60,7 +60,7 @@ fn ensure_square(mean: &[f64], cov: &[&[f64]]) -> Result<usize, KernelError> {
 
 /// Multivariate gamma function: Γ_d(a) = π^{d(d-1)/4} ∏_{j=1}^d Γ(a + (1−j)/2)
 fn ln_multivariate_gamma(d: usize, a: f64) -> f64 {
-    let mut sum = (d * (d - 1) / 4) as f64 * LN_PI;
+    let mut sum = (d * (d - 1)) as f64 / 4.0 * LN_PI;
     for j in 0..d {
         sum += ln_gamma(a + (1.0 - (j as f64 + 1.0)) * 0.5);
     }
@@ -1156,14 +1156,13 @@ pub fn dirichlet_pdf(
     for &a in alpha {
         sum_alpha += a;
     }
-    let ln_norm =
-        ln_gamma(sum_alpha) - alpha.iter().map(|&a| ln_gamma(a)).sum::<f64>();
+    let ln_norm = ln_gamma(sum_alpha) - alpha.iter().map(|&a| ln_gamma(a)).sum::<f64>();
 
     let mut log_pdf = 0.0;
     for (&xi, &a) in x.iter().zip(alpha.iter()) {
         log_pdf += (a - 1.0) * xi.ln();
     }
-    let pdf = (log_pdf - ln_norm).exp();
+    let pdf = (ln_norm + log_pdf).exp();
     Ok(FloatArray::from_vec64(vec![pdf].into(), None))
 }
 

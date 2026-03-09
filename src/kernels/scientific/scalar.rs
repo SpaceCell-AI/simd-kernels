@@ -69,8 +69,7 @@ macro_rules! impl_vecmap {
             null_mask: Option<&Bitmask>,
             null_count: Option<usize>,
         ) -> Result<(), &'static str>
-        where
-        {
+        where {
             let len = input.len();
             assert_eq!(
                 len,
@@ -203,8 +202,7 @@ macro_rules! impl_vecmap {
             null_mask: Option<&Bitmask>,
             null_count: Option<usize>,
         ) -> Result<FloatArray<f64>, &'static str>
-        where
-        {
+        where {
             let len = input.len();
             // fast length‐0 case
             if len == 0 {
@@ -268,9 +266,7 @@ impl_vecmap!(sign, sign_to, sign_elem, |x: f64| x.signum());
 // Activation functions
 impl_vecmap!(sigmoid, sigmoid_to, sigmoid_elem, |x: f64| 1.0
     / (1.0 + (-x).exp()));
-impl_vecmap!(softplus, softplus_to, softplus_elem, |x: f64| if x
-    > 20.0
-{
+impl_vecmap!(softplus, softplus_to, softplus_elem, |x: f64| if x > 20.0 {
     x
 } else {
     (1.0 + x.exp()).ln()

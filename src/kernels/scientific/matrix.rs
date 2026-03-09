@@ -234,13 +234,7 @@ pub fn matrix_min_max(
 /// - `a`:    Matrix buffer, length >= lda * n. Overwritten with L and U factors.
 /// - `lda`:  Leading dimension of A (>= m).
 /// - `ipiv`: Pivot index buffer, length >= min(m, n). Populated on exit.
-pub fn _lu(
-    m: i32,
-    n: i32,
-    a: &mut [f64],
-    lda: i32,
-    ipiv: &mut [i32],
-) -> Result<(), KernelError> {
+pub fn _lu(m: i32, n: i32, a: &mut [f64], lda: i32, ipiv: &mut [i32]) -> Result<(), KernelError> {
     if m <= 0 || n <= 0 {
         return Err(KernelError::InvalidArguments(
             "m, n must be positive".into(),
@@ -284,13 +278,7 @@ pub fn _lu(
 /// - `a`:    Matrix buffer, length >= lda * n. Overwritten on exit.
 /// - `lda`:  Leading dimension of A (>= m).
 /// - `taus`: Householder scalar factors, length >= min(m, n).
-pub fn qr(
-    m: i32,
-    n: i32,
-    a: &mut [f64],
-    lda: i32,
-    taus: &mut [f64],
-) -> Result<(), KernelError> {
+pub fn qr(m: i32, n: i32, a: &mut [f64], lda: i32, taus: &mut [f64]) -> Result<(), KernelError> {
     if m <= 0 || n <= 0 {
         return Err(KernelError::InvalidArguments(
             "m, n must be positive".into(),
@@ -372,9 +360,7 @@ pub fn qr_q(
 /// - `lda`:  Leading dimension of A (>= n).
 pub fn cholesky(n: i32, a: &mut [f64], lda: i32) -> Result<(), KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if lda < n {
         return Err(KernelError::InvalidArguments("lda must be >= n".into()));
@@ -383,8 +369,7 @@ pub fn cholesky(n: i32, a: &mut [f64], lda: i32) -> Result<(), KernelError> {
         return Err(KernelError::InvalidArguments("A buffer too small".into()));
     }
 
-    blas_lapack::spd_cholesky(n, a, lda)
-        .map_err(|e| KernelError::InvalidArguments(e.to_string()))
+    blas_lapack::spd_cholesky(n, a, lda).map_err(|e| KernelError::InvalidArguments(e.to_string()))
 }
 
 /// Singular value decomposition: A = U * diag(S) * Vt.
@@ -453,9 +438,7 @@ pub fn svd(
     // Validate Vt buffer size
     let min_ldvt = if economy { k } else { n };
     if ldvt < min_ldvt {
-        return Err(KernelError::InvalidArguments(
-            "ldvt too small".into(),
-        ));
+        return Err(KernelError::InvalidArguments("ldvt too small".into()));
     }
     if vt.len() < (ldvt * n) as usize {
         return Err(KernelError::InvalidArguments("Vt buffer too small".into()));
@@ -489,9 +472,7 @@ pub fn eig_symmetric(
     eigenvalues: &mut [f64],
 ) -> Result<(), KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if lda < n {
         return Err(KernelError::InvalidArguments("lda must be >= n".into()));
@@ -539,9 +520,7 @@ pub fn solve(
     ldb: i32,
 ) -> Result<(), KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if nrhs <= 0 {
         return Err(KernelError::InvalidArguments(
@@ -595,9 +574,7 @@ pub fn spd_solve(
     ldb: i32,
 ) -> Result<(), KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if nrhs <= 0 {
         return Err(KernelError::InvalidArguments(
@@ -641,9 +618,7 @@ pub fn solve_triangular_upper(
     ldb: i32,
 ) -> Result<(), KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if ldu < n {
         return Err(KernelError::InvalidArguments("ldu must be >= n".into()));
@@ -682,9 +657,7 @@ pub fn solve_triangular_lower(
     ldb: i32,
 ) -> Result<(), KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if ldl < n {
         return Err(KernelError::InvalidArguments("ldl must be >= n".into()));
@@ -715,9 +688,7 @@ pub fn solve_triangular_lower(
 /// - `lda`:  Leading dimension of A (>= n).
 pub fn inverse(n: i32, a: &mut [f64], lda: i32) -> Result<(), KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if lda < n {
         return Err(KernelError::InvalidArguments("lda must be >= n".into()));
@@ -729,8 +700,7 @@ pub fn inverse(n: i32, a: &mut [f64], lda: i32) -> Result<(), KernelError> {
     let mut ipiv = vec![0i32; n as usize];
     _lu(n, n, a, lda, &mut ipiv)?;
 
-    blas_lapack::getri(n, a, lda, &ipiv)
-        .map_err(|e| KernelError::InvalidArguments(e.to_string()))
+    blas_lapack::getri(n, a, lda, &ipiv).map_err(|e| KernelError::InvalidArguments(e.to_string()))
 }
 
 /// SPD matrix inverse in-place via Cholesky factorisation.
@@ -746,9 +716,7 @@ pub fn inverse(n: i32, a: &mut [f64], lda: i32) -> Result<(), KernelError> {
 /// - `lda`:  Leading dimension of A (>= n).
 pub fn spd_inverse(n: i32, a: &mut [f64], lda: i32) -> Result<(), KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if lda < n {
         return Err(KernelError::InvalidArguments("lda must be >= n".into()));
@@ -792,9 +760,7 @@ pub fn spd_inverse(n: i32, a: &mut [f64], lda: i32) -> Result<(), KernelError> {
 /// - `lda`:  Leading dimension of A (>= n).
 pub fn determinant(n: i32, a: &mut [f64], lda: i32) -> Result<f64, KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if lda < n {
         return Err(KernelError::InvalidArguments("lda must be >= n".into()));
@@ -835,13 +801,7 @@ pub fn determinant(n: i32, a: &mut [f64], lda: i32) -> Result<f64, KernelError> 
 /// - `a`:    Matrix buffer, length >= lda * n. Destroyed on exit.
 /// - `lda`:  Leading dimension of A (>= m).
 /// - `tol`:  Tolerance for singular value cutoff.
-pub fn rank(
-    m: i32,
-    n: i32,
-    a: &mut [f64],
-    lda: i32,
-    tol: f64,
-) -> Result<usize, KernelError> {
+pub fn rank(m: i32, n: i32, a: &mut [f64], lda: i32, tol: f64) -> Result<usize, KernelError> {
     if m <= 0 || n <= 0 {
         return Err(KernelError::InvalidArguments(
             "m, n must be positive".into(),
@@ -860,8 +820,20 @@ pub fn rank(
     // We only need singular values, not vectors. Use 'N' for both.
     let mut u_dummy = [0.0_f64; 1];
     let mut vt_dummy = [0.0_f64; 1];
-    blas_lapack::svd_block(b'N', b'N', m, n, a, lda, &mut s, &mut u_dummy, 1, &mut vt_dummy, 1)
-        .map_err(|e| KernelError::InvalidArguments(e.to_string()))?;
+    blas_lapack::svd_block(
+        b'N',
+        b'N',
+        m,
+        n,
+        a,
+        lda,
+        &mut s,
+        &mut u_dummy,
+        1,
+        &mut vt_dummy,
+        1,
+    )
+    .map_err(|e| KernelError::InvalidArguments(e.to_string()))?;
 
     let r = s.iter().filter(|&&sv| sv > tol).count();
     Ok(r)
@@ -930,12 +902,7 @@ pub fn least_squares(
 /// - `n`:    Number of columns of A.
 /// - `a`:    Matrix buffer, length >= lda * n. Destroyed on exit.
 /// - `lda`:  Leading dimension of A (>= m).
-pub fn condition_number(
-    m: i32,
-    n: i32,
-    a: &mut [f64],
-    lda: i32,
-) -> Result<f64, KernelError> {
+pub fn condition_number(m: i32, n: i32, a: &mut [f64], lda: i32) -> Result<f64, KernelError> {
     if m <= 0 || n <= 0 {
         return Err(KernelError::InvalidArguments(
             "m, n must be positive".into(),
@@ -953,8 +920,20 @@ pub fn condition_number(
 
     let mut u_dummy = [0.0_f64; 1];
     let mut vt_dummy = [0.0_f64; 1];
-    blas_lapack::svd_block(b'N', b'N', m, n, a, lda, &mut s, &mut u_dummy, 1, &mut vt_dummy, 1)
-        .map_err(|e| KernelError::InvalidArguments(e.to_string()))?;
+    blas_lapack::svd_block(
+        b'N',
+        b'N',
+        m,
+        n,
+        a,
+        lda,
+        &mut s,
+        &mut u_dummy,
+        1,
+        &mut vt_dummy,
+        1,
+    )
+    .map_err(|e| KernelError::InvalidArguments(e.to_string()))?;
 
     let s_max = s[0]; // singular values are in descending order
     let s_min = s[k - 1];
@@ -981,13 +960,7 @@ pub fn condition_number(
 /// - `a`:    Matrix buffer, length >= lda * n.
 /// - `lda`:  Leading dimension of A (>= m).
 /// - `kind`: Norm type: "fro", "l1", or "linf".
-pub fn norm(
-    m: i32,
-    n: i32,
-    a: &[f64],
-    lda: i32,
-    kind: &str,
-) -> Result<f64, KernelError> {
+pub fn norm(m: i32, n: i32, a: &[f64], lda: i32, kind: &str) -> Result<f64, KernelError> {
     if m <= 0 || n <= 0 {
         return Err(KernelError::InvalidArguments(
             "m, n must be positive".into(),
@@ -1038,7 +1011,11 @@ pub fn norm(
             let mut row_comps = vec![0.0_f64; mu];
             for col in 0..nu {
                 for row in 0..mu {
-                    neumaier_add(&mut row_sums[row], &mut row_comps[row], a[row + col * ldau].abs());
+                    neumaier_add(
+                        &mut row_sums[row],
+                        &mut row_comps[row],
+                        a[row + col * ldau].abs(),
+                    );
                 }
             }
             let max_row_sum = row_sums
@@ -1048,9 +1025,10 @@ pub fn norm(
                 .fold(0.0_f64, f64::max);
             Ok(max_row_sum)
         }
-        _ => Err(KernelError::InvalidArguments(
-            format!("Unknown norm kind '{}'. Use \"fro\", \"l1\", or \"linf\".", kind),
-        )),
+        _ => Err(KernelError::InvalidArguments(format!(
+            "Unknown norm kind '{}'. Use \"fro\", \"l1\", or \"linf\".",
+            kind
+        ))),
     }
 }
 
@@ -1094,9 +1072,7 @@ pub fn covariance(
         ));
     }
     if ldx < n_obs {
-        return Err(KernelError::InvalidArguments(
-            "ldx must be >= n_obs".into(),
-        ));
+        return Err(KernelError::InvalidArguments("ldx must be >= n_obs".into()));
     }
     if ldc < n_feat {
         return Err(KernelError::InvalidArguments(
@@ -1107,16 +1083,14 @@ pub fn covariance(
         return Err(KernelError::InvalidArguments("X buffer too small".into()));
     }
     if cov.len() < (ldc * n_feat) as usize {
-        return Err(KernelError::InvalidArguments(
-            "cov buffer too small".into(),
-        ));
+        return Err(KernelError::InvalidArguments("cov buffer too small".into()));
     }
     let n_obs_u = n_obs as usize;
     let n_feat_u = n_feat as usize;
     let ldx_u = ldx as usize;
-    let denom = n_obs_u.checked_sub(ddof).ok_or_else(|| {
-        KernelError::InvalidArguments("ddof >= n_obs: division by zero".into())
-    })?;
+    let denom = n_obs_u
+        .checked_sub(ddof)
+        .ok_or_else(|| KernelError::InvalidArguments("ddof >= n_obs: division by zero".into()))?;
     if denom == 0 {
         return Err(KernelError::InvalidArguments(
             "n_obs - ddof is zero: division by zero".into(),
@@ -1150,19 +1124,19 @@ pub fn covariance(
     // trans_a=true, trans_b=false: (n_feat x n_obs) * (n_obs x n_feat) = n_feat x n_feat
     // m=n_feat, n=n_feat, k=n_obs
     blas_lapack::blocked_gemm(
-        n_feat,     // m
-        n_feat,     // n
-        n_obs,      // k
-        1.0,        // alpha
-        &xc,        // A (used as A^T)
-        n_obs,      // lda (rows of the untransposed A = n_obs)
-        &xc,        // B
-        n_obs,      // ldb
-        0.0,        // beta
-        cov,        // C
-        ldc,        // ldc
-        true,       // trans_a
-        false,      // trans_b
+        n_feat, // m
+        n_feat, // n
+        n_obs,  // k
+        1.0,    // alpha
+        &xc,    // A (used as A^T)
+        n_obs,  // lda (rows of the untransposed A = n_obs)
+        &xc,    // B
+        n_obs,  // ldb
+        0.0,    // beta
+        cov,    // C
+        ldc,    // ldc
+        true,   // trans_a
+        false,  // trans_b
     )
     .map_err(|e| KernelError::InvalidArguments(e.to_string()))?;
 
@@ -1198,9 +1172,7 @@ pub fn covariance(
 /// - `lda`:  Leading dimension of A (>= n).
 pub fn log_det_spd(n: i32, a: &mut [f64], lda: i32) -> Result<f64, KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if lda < n {
         return Err(KernelError::InvalidArguments("lda must be >= n".into()));
@@ -1267,9 +1239,7 @@ pub fn mahalanobis(
         ));
     }
     if ldx < n_obs {
-        return Err(KernelError::InvalidArguments(
-            "ldx must be >= n_obs".into(),
-        ));
+        return Err(KernelError::InvalidArguments("ldx must be >= n_obs".into()));
     }
     if lds < n_feat {
         return Err(KernelError::InvalidArguments(
@@ -1334,16 +1304,9 @@ pub fn mahalanobis(
 /// - `t`:     Triangular matrix buffer, length >= ldt * n. Overwritten with inverse.
 /// - `ldt`:   Leading dimension of T (>= n).
 /// - `upper`: If true, T is upper-triangular. If false, T is lower-triangular.
-pub fn triangular_inverse(
-    n: i32,
-    t: &mut [f64],
-    ldt: i32,
-    upper: bool,
-) -> Result<(), KernelError> {
+pub fn triangular_inverse(n: i32, t: &mut [f64], ldt: i32, upper: bool) -> Result<(), KernelError> {
     if n <= 0 {
-        return Err(KernelError::InvalidArguments(
-            "n must be positive".into(),
-        ));
+        return Err(KernelError::InvalidArguments("n must be positive".into()));
     }
     if ldt < n {
         return Err(KernelError::InvalidArguments("ldt must be >= n".into()));
@@ -1387,8 +1350,8 @@ mod tests {
         c
     }
 
-        // Decompositions
-    
+    // Decompositions
+
     // ---- LU ----
 
     #[test]
@@ -1441,7 +1404,9 @@ mod tests {
             assert!(
                 approx_eq(lu[idx], pa[idx], TOL),
                 "LU[{idx}] = {}, PA[{idx}] = {}, diff = {}",
-                lu[idx], pa[idx], (lu[idx] - pa[idx]).abs()
+                lu[idx],
+                pa[idx],
+                (lu[idx] - pa[idx]).abs()
             );
         }
     }
@@ -1465,7 +1430,10 @@ mod tests {
         if result.is_ok() {
             // Check that a diagonal element is zero/near-zero (singular U)
             let has_zero_diag = (0..3).any(|i| a[i + i * 3].abs() < 1e-12);
-            assert!(has_zero_diag, "Singular matrix should have zero diagonal in U");
+            assert!(
+                has_zero_diag,
+                "Singular matrix should have zero diagonal in U"
+            );
         }
         // If Err, the LAPACK detected singularity -- also correct
     }
@@ -1480,9 +1448,9 @@ mod tests {
         //      [10, 11, 12]]
         // 4x3 matrix
         let a_orig = vec![
-            1.0, 4.0, 7.0, 10.0,   // col 0
-            2.0, 5.0, 8.0, 11.0,   // col 1
-            3.0, 6.0, 9.0, 12.0,   // col 2
+            1.0, 4.0, 7.0, 10.0, // col 0
+            2.0, 5.0, 8.0, 11.0, // col 1
+            3.0, 6.0, 9.0, 12.0, // col 2
         ];
 
         // Step 1: QR factorisation
@@ -1523,7 +1491,9 @@ mod tests {
             assert!(
                 approx_eq(qr_product[idx], a_orig[idx], TOL),
                 "QR[{idx}] = {}, A[{idx}] = {}, diff = {}",
-                qr_product[idx], a_orig[idx], (qr_product[idx] - a_orig[idx]).abs()
+                qr_product[idx],
+                a_orig[idx],
+                (qr_product[idx] - a_orig[idx]).abs()
             );
         }
     }
@@ -1558,7 +1528,9 @@ mod tests {
             assert!(
                 approx_eq(llt[idx], a_orig[idx], TOL),
                 "L*Lt[{idx}] = {}, A[{idx}] = {}, diff = {}",
-                llt[idx], a_orig[idx], (llt[idx] - a_orig[idx]).abs()
+                llt[idx],
+                a_orig[idx],
+                (llt[idx] - a_orig[idx]).abs()
             );
         }
     }
@@ -1609,7 +1581,8 @@ mod tests {
             assert!(
                 approx_eq(a_reconstructed[idx], a_orig[idx], TOL),
                 "USVt[{idx}] = {}, A[{idx}] = {}, diff = {}",
-                a_reconstructed[idx], a_orig[idx],
+                a_reconstructed[idx],
+                a_orig[idx],
                 (a_reconstructed[idx] - a_orig[idx]).abs()
             );
         }
@@ -1640,7 +1613,8 @@ mod tests {
             assert!(
                 eigenvalues[i] >= eigenvalues[i - 1] - TOL,
                 "Eigenvalues should be ascending: {} >= {}",
-                eigenvalues[i], eigenvalues[i - 1]
+                eigenvalues[i],
+                eigenvalues[i - 1]
             );
         }
 
@@ -1659,8 +1633,8 @@ mod tests {
         }
     }
 
-        // Solvers
-    
+    // Solvers
+
     #[test]
     fn test_solve_3x3() {
         // A = [[1, 2, 3],
@@ -1749,16 +1723,14 @@ mod tests {
         // Solution in first n=2 entries of b
         assert!(
             approx_eq(b[0], 0.0, TOL),
-            "intercept = {}, expected 0.0", b[0]
+            "intercept = {}, expected 0.0",
+            b[0]
         );
-        assert!(
-            approx_eq(b[1], 1.1, TOL),
-            "slope = {}, expected 1.1", b[1]
-        );
+        assert!(approx_eq(b[1], 1.1, TOL), "slope = {}, expected 1.1", b[1]);
     }
 
-        // Diagnostics
-    
+    // Diagnostics
+
     #[test]
     fn test_inverse_3x3() {
         // A = [[1, 2, 3],
@@ -1817,10 +1789,7 @@ mod tests {
         let mut a = vec![1.0, 0.0, 1.0, 2.0, 4.0, 0.0, 3.0, 5.0, 6.0];
 
         let det = determinant(3, &mut a, 3).unwrap();
-        assert!(
-            approx_eq(det, 22.0, TOL),
-            "det = {det}, expected 22.0"
-        );
+        assert!(approx_eq(det, 22.0, TOL), "det = {det}, expected 22.0");
     }
 
     #[test]
@@ -1875,7 +1844,8 @@ mod tests {
         let n = norm(2, 2, &a, 2, "fro").unwrap();
         assert!(
             approx_eq(n, 30.0_f64.sqrt(), TOL),
-            "Frobenius norm = {n}, expected {}", 30.0_f64.sqrt()
+            "Frobenius norm = {n}, expected {}",
+            30.0_f64.sqrt()
         );
     }
 
@@ -1887,10 +1857,7 @@ mod tests {
         // L1 = max col sum of abs: max(|1|+|3|, |-2|+|4|) = max(4, 6) = 6
         let a = vec![1.0, 3.0, -2.0, 4.0];
         let n = norm(2, 2, &a, 2, "l1").unwrap();
-        assert!(
-            approx_eq(n, 6.0, TOL),
-            "L1 norm = {n}, expected 6.0"
-        );
+        assert!(approx_eq(n, 6.0, TOL), "L1 norm = {n}, expected 6.0");
     }
 
     #[test]
@@ -1901,14 +1868,11 @@ mod tests {
         // Linf = max row sum of abs: max(|1|+|-2|, |3|+|4|) = max(3, 7) = 7
         let a = vec![1.0, 3.0, -2.0, 4.0];
         let n = norm(2, 2, &a, 2, "linf").unwrap();
-        assert!(
-            approx_eq(n, 7.0, TOL),
-            "Linf norm = {n}, expected 7.0"
-        );
+        assert!(approx_eq(n, 7.0, TOL), "Linf norm = {n}, expected 7.0");
     }
 
-        // Tier 2: Covariance, log_det_spd, Mahalanobis, triangular_inverse
-    
+    // Tier 2: Covariance, log_det_spd, Mahalanobis, triangular_inverse
+
     #[test]
     fn test_covariance_perfectly_correlated_ddof1() {
         // 4 observations x 3 features, perfectly correlated:
@@ -1918,9 +1882,9 @@ mod tests {
         //      [10, 11, 12]]
         // Column-major (4 rows per column):
         let x = vec![
-            1.0, 4.0, 7.0, 10.0,  // feature 0
-            2.0, 5.0, 8.0, 11.0,  // feature 1
-            3.0, 6.0, 9.0, 12.0,  // feature 2
+            1.0, 4.0, 7.0, 10.0, // feature 0
+            2.0, 5.0, 8.0, 11.0, // feature 1
+            3.0, 6.0, 9.0, 12.0, // feature 2
         ];
 
         // Column means: [5.5, 6.5, 7.5]
@@ -1957,9 +1921,7 @@ mod tests {
         // Same data, ddof=0 (population covariance)
         // var = 45/4 = 11.25
         let x = vec![
-            1.0, 4.0, 7.0, 10.0,
-            2.0, 5.0, 8.0, 11.0,
-            3.0, 6.0, 9.0, 12.0,
+            1.0, 4.0, 7.0, 10.0, 2.0, 5.0, 8.0, 11.0, 3.0, 6.0, 9.0, 12.0,
         ];
 
         let mut cov = vec![0.0_f64; 9];
@@ -1986,8 +1948,8 @@ mod tests {
         // cov(f0,f1) = (1*1 + (-1)*1 + 1*(-1) + (-1)*(-1))/3 = 0/3 = 0
         // cov(f1,f1) = 4/3
         let x = vec![
-            1.0, -1.0, 1.0, -1.0,  // feature 0
-            1.0, 1.0, -1.0, -1.0,  // feature 1
+            1.0, -1.0, 1.0, -1.0, // feature 0
+            1.0, 1.0, -1.0, -1.0, // feature 1
         ];
 
         let mut cov = vec![0.0_f64; 4];
@@ -1996,19 +1958,25 @@ mod tests {
         let expected_var = 4.0 / 3.0;
         assert!(
             approx_eq(cov[0], expected_var, TOL),
-            "cov[0,0] = {}, expected {}", cov[0], expected_var
+            "cov[0,0] = {}, expected {}",
+            cov[0],
+            expected_var
         );
         assert!(
             approx_eq(cov[1], 0.0, TOL),
-            "cov[1,0] = {}, expected 0.0", cov[1]
+            "cov[1,0] = {}, expected 0.0",
+            cov[1]
         );
         assert!(
             approx_eq(cov[2], 0.0, TOL),
-            "cov[0,1] = {}, expected 0.0", cov[2]
+            "cov[0,1] = {}, expected 0.0",
+            cov[2]
         );
         assert!(
             approx_eq(cov[3], expected_var, TOL),
-            "cov[1,1] = {}, expected {}", cov[3], expected_var
+            "cov[1,1] = {}, expected {}",
+            cov[3],
+            expected_var
         );
     }
 
@@ -2020,7 +1988,8 @@ mod tests {
         let ld = log_det_spd(2, &mut a, 2).unwrap();
         assert!(
             approx_eq(ld, 8.0_f64.ln(), TOL),
-            "log_det = {ld}, expected {}", 8.0_f64.ln()
+            "log_det = {ld}, expected {}",
+            8.0_f64.ln()
         );
     }
 
@@ -2035,7 +2004,8 @@ mod tests {
         let ld = log_det_spd(3, &mut a, 3).unwrap();
         assert!(
             approx_eq(ld, 67.0_f64.ln(), TOL),
-            "log_det = {ld}, expected {}", 67.0_f64.ln()
+            "log_det = {ld}, expected {}",
+            67.0_f64.ln()
         );
     }
 
@@ -2056,7 +2026,8 @@ mod tests {
 
         assert!(
             approx_eq(distances[0], 5.0, TOL),
-            "distance = {}, expected 5.0", distances[0]
+            "distance = {}, expected 5.0",
+            distances[0]
         );
     }
 
@@ -2078,7 +2049,9 @@ mod tests {
 
         assert!(
             approx_eq(distances[0], 2.0_f64.sqrt(), TOL),
-            "distance = {}, expected {}", distances[0], 2.0_f64.sqrt()
+            "distance = {}, expected {}",
+            distances[0],
+            2.0_f64.sqrt()
         );
     }
 
@@ -2100,15 +2073,18 @@ mod tests {
 
         assert!(
             approx_eq(distances[0], 0.0, TOL),
-            "d[0] = {}, expected 0.0", distances[0]
+            "d[0] = {}, expected 0.0",
+            distances[0]
         );
         assert!(
             approx_eq(distances[1], 3.0, TOL),
-            "d[1] = {}, expected 3.0", distances[1]
+            "d[1] = {}, expected 3.0",
+            distances[1]
         );
         assert!(
             approx_eq(distances[2], 4.0, TOL),
-            "d[2] = {}, expected 4.0", distances[2]
+            "d[2] = {}, expected 4.0",
+            distances[2]
         );
     }
 

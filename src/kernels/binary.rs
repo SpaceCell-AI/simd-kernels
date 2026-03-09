@@ -176,9 +176,13 @@ where
             let data = match mask {
                 Some(m) => {
                     #[cfg(feature = "simd")]
-                    { minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, len)) }
+                    {
+                        minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, len))
+                    }
                     #[cfg(not(feature = "simd"))]
-                    { not_mask((m, 0, len)) }
+                    {
+                        not_mask((m, 0, len))
+                    }
                 }
                 None => new_bool_bitmask(len),
             };
@@ -259,9 +263,13 @@ where
             let data = match mask {
                 Some(m) => {
                     #[cfg(feature = "simd")]
-                    { minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, len)) }
+                    {
+                        minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, len))
+                    }
                     #[cfg(not(feature = "simd"))]
-                    { not_mask((m, 0, len)) }
+                    {
+                        not_mask((m, 0, len))
+                    }
                 }
                 None => new_bool_bitmask(len),
             };
@@ -515,9 +523,13 @@ pub fn apply_cmp_str<T: Integer>(
             let data = match null_mask.as_ref() {
                 Some(m) => {
                     #[cfg(feature = "simd")]
-                    { minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, llen)) }
+                    {
+                        minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, llen))
+                    }
                     #[cfg(not(feature = "simd"))]
-                    { not_mask((m, 0, llen)) }
+                    {
+                        not_mask((m, 0, llen))
+                    }
                 }
                 None => new_bool_bitmask(llen),
             };
@@ -672,9 +684,13 @@ pub fn apply_cmp_dict<T: Integer + Hash>(
             let data = match null_mask.as_ref() {
                 Some(m) => {
                     #[cfg(feature = "simd")]
-                    { minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, llen)) }
+                    {
+                        minarrow::kernels::bitmask::simd::not_mask_simd::<W8>((m, 0, llen))
+                    }
                     #[cfg(not(feature = "simd"))]
-                    { not_mask((m, 0, llen)) }
+                    {
+                        not_mask((m, 0, llen))
+                    }
                 }
                 None => new_bool_bitmask(llen),
             };
@@ -789,14 +805,14 @@ mod tests {
         let mask = bm(&[true, false, true]); // position 1 is null
         let arr = apply_cmp(&a, &a, Some(&mask), ComparisonOperator::IsNull).unwrap();
         assert_eq!(arr.data.get(0), false); // present -> not null
-        assert_eq!(arr.data.get(1), true);  // absent -> is null
+        assert_eq!(arr.data.get(1), true); // absent -> is null
         assert_eq!(arr.data.get(2), false); // present -> not null
-        assert_eq!(arr.null_mask, None);    // result is always valid
+        assert_eq!(arr.null_mask, None); // result is always valid
         let arr = apply_cmp(&a, &a, Some(&mask), ComparisonOperator::IsNotNull).unwrap();
-        assert_eq!(arr.data.get(0), true);  // present -> is not null
+        assert_eq!(arr.data.get(0), true); // present -> is not null
         assert_eq!(arr.data.get(1), false); // absent -> is null
-        assert_eq!(arr.data.get(2), true);  // present -> is not null
-        assert_eq!(arr.null_mask, None);    // result is always valid
+        assert_eq!(arr.data.get(2), true); // present -> is not null
+        assert_eq!(arr.null_mask, None); // result is always valid
     }
 
     #[test]

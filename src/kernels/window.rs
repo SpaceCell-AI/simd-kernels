@@ -456,7 +456,11 @@ pub fn rolling_product_int_to<T: Num + Copy + One + Zero + PartialEq>(
         } else {
             let ok = invalids == 0;
             unsafe { out_mask.set_unchecked(i, ok) };
-            out[i] = if zero_count > 0 { T::zero() } else { nz_product };
+            out[i] = if zero_count > 0 {
+                T::zero()
+            } else {
+                nz_product
+            };
         }
     }
 }
@@ -904,12 +908,7 @@ pub fn rolling_max_float<T: Float + Copy + Zero>(
 #[inline]
 /// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
-pub fn rolling_count_to(
-    len: usize,
-    subwindow: usize,
-    out: &mut [i32],
-    out_mask: &mut Bitmask,
-) {
+pub fn rolling_count_to(len: usize, subwindow: usize, out: &mut [i32], out_mask: &mut Bitmask) {
     for i in 0..len {
         let start = if i + 1 >= subwindow {
             i + 1 - subwindow
@@ -1358,12 +1357,7 @@ pub fn dense_rank_float<T: Float + Copy>(
     } else {
         &arr.null_mask
     };
-    dense_rank_numeric(
-        data,
-        null_mask.as_ref(),
-        total_cmp_f,
-        |a, b| a == b,
-    )
+    dense_rank_numeric(data, null_mask.as_ref(), total_cmp_f, |a, b| a == b)
 }
 
 /// Computes SQL DENSE_RANK() ranking for string data with lexicographic dense ordering.

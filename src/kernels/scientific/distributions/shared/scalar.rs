@@ -450,6 +450,9 @@ pub fn incomplete_beta(a: f64, b: f64, x: f64) -> f64 {
     d = 1.0 / d;
     let mut h = d;
 
+    #[cfg(test)]
+    eprintln!("  ibeta({a},{b},{x}): init d0={}, h0={}", d, h);
+
     for m in 1..=MAX_ITS {
         let m2 = 2 * m;
 
@@ -481,7 +484,14 @@ pub fn incomplete_beta(a: f64, b: f64, x: f64) -> f64 {
         let delta = d * c;
         h *= delta;
 
+        #[cfg(test)]
+        if m <= 5 {
+            eprintln!("  ibeta({a},{b},{x}): m={m} h={:.18} delta={:.18}", h, delta);
+        }
+
         if (delta - 1.0).abs() < EPS {
+            #[cfg(test)]
+            eprintln!("  ibeta({a},{b},{x}): converged at m={m}, result={:.18}", front * h);
             break;
         }
     }
@@ -1554,6 +1564,9 @@ mod tests {
         assert!((f_cdf_scalar(4.0, 3.0, 15.0) - 0.9718629601291221).abs() < 1e-14);
         // scipy.stats.f.cdf(10.0, 1, 1) == 0.805017770957863
         assert!((f_cdf_scalar(10.0, 1.0, 1.0) - 0.805017770957863).abs() < 1e-14);
+        // scipy.stats.f.cdf(3.0, 5, 10) == 0.9344424379061558
+        let val = f_cdf_scalar(3.0, 5.0, 10.0);
+        assert!((val - 0.9344424379061558).abs() < 1e-10, "f_cdf_scalar(3.0, 5.0, 10.0) = {}, expected ~0.9344", val);
         // Edge: NaN
         assert!(f_cdf_scalar(f64::NAN, 5.0, 10.0).is_nan());
         assert!(f_cdf_scalar(1.0, 0.5, 10.0).is_nan()); // d1 < 1

@@ -2323,6 +2323,14 @@ impl_reduce_min_max!(reduce_min_max_i64, i64, W64, i64::MAX, i64::MIN);
 impl_reduce_min_max!(reduce_min_max_u64, u64, W64, u64::MAX, u64::MIN);
 impl_reduce_min_max!(reduce_min_max_i32, i32, W32, i32::MAX, i32::MIN);
 impl_reduce_min_max!(reduce_min_max_u32, u32, W32, u32::MAX, u32::MIN);
+#[cfg(feature = "extended_numeric_types")]
+impl_reduce_min_max!(reduce_min_max_i8, i8, W8, i8::MAX, i8::MIN);
+#[cfg(feature = "extended_numeric_types")]
+impl_reduce_min_max!(reduce_min_max_i16, i16, W16, i16::MAX, i16::MIN);
+#[cfg(feature = "extended_numeric_types")]
+impl_reduce_min_max!(reduce_min_max_u8, u8, W8, u8::MAX, u8::MIN);
+#[cfg(feature = "extended_numeric_types")]
+impl_reduce_min_max!(reduce_min_max_u16, u16, W16, u16::MAX, u16::MIN);
 impl_reduce_min_max_float!(reduce_min_max_f64, f64, W64, Simd, Mask);
 impl_reduce_min_max_float!(reduce_min_max_f32, f32, W32, Simd, Mask);
 
@@ -2332,6 +2340,14 @@ impl_min_max_range!(i64, reduce_min_max_i64, min_i64, max_i64, range_i64);
 impl_min_max_range!(u64, reduce_min_max_u64, min_u64, max_u64, range_u64);
 impl_min_max_range!(i32, reduce_min_max_i32, min_i32, max_i32, range_i32);
 impl_min_max_range!(u32, reduce_min_max_u32, min_u32, max_u32, range_u32);
+#[cfg(feature = "extended_numeric_types")]
+impl_min_max_range!(i8, reduce_min_max_i8, min_i8, max_i8, range_i8);
+#[cfg(feature = "extended_numeric_types")]
+impl_min_max_range!(i16, reduce_min_max_i16, min_i16, max_i16, range_i16);
+#[cfg(feature = "extended_numeric_types")]
+impl_min_max_range!(u8, reduce_min_max_u8, min_u8, max_u8, range_u8);
+#[cfg(feature = "extended_numeric_types")]
+impl_min_max_range!(u16, reduce_min_max_u16, min_u16, max_u16, range_u16);
 
 impl_sum_avg!(float f64, sum_f64, average_f64, sum_f64_raw);
 impl_sum_avg!(float f32, sum_f32, average_f32, sum_f32_raw);
@@ -2340,6 +2356,14 @@ impl_sum_avg!(int  i64, sum_i64, average_i64, i64, sum_i64_raw);
 impl_sum_avg!(int  u64, sum_u64, average_u64, u64, sum_u64_raw);
 impl_sum_avg!(int  i32, sum_i32, average_i32, i64 , sum_i32_raw);
 impl_sum_avg!(int  u32, sum_u32, average_u32, u64 , sum_u32_raw);
+#[cfg(feature = "extended_numeric_types")]
+impl_sum_avg!(int  i8, sum_i8, average_i8, i64, sum_i8_raw);
+#[cfg(feature = "extended_numeric_types")]
+impl_sum_avg!(int  i16, sum_i16, average_i16, i64, sum_i16_raw);
+#[cfg(feature = "extended_numeric_types")]
+impl_sum_avg!(int  u8, sum_u8, average_u8, u64, sum_u8_raw);
+#[cfg(feature = "extended_numeric_types")]
+impl_sum_avg!(int  u16, sum_u16, average_u16, u64, sum_u16_raw);
 
 impl_variance!(f64, variance_f64);
 impl_variance!(f32, variance_f32);
@@ -2354,6 +2378,14 @@ impl_sum_int!(sum_i64_raw, i64, i64, W64);
 impl_sum_int!(sum_u64_raw, u64, u64, W64);
 impl_sum_int!(sum_i32_raw, i32, i64, W32);
 impl_sum_int!(sum_u32_raw, u32, u64, W32);
+#[cfg(feature = "extended_numeric_types")]
+impl_sum_int!(sum_i8_raw, i8, i64, W8);
+#[cfg(feature = "extended_numeric_types")]
+impl_sum_int!(sum_i16_raw, i16, i64, W16);
+#[cfg(feature = "extended_numeric_types")]
+impl_sum_int!(sum_u8_raw, u8, u64, W8);
+#[cfg(feature = "extended_numeric_types")]
+impl_sum_int!(sum_u16_raw, u16, u64, W16);
 
 impl_sum2_float!(sum2_f64_raw, f64, W64);
 impl_sum2_float!(sum2_f32_raw, f32, W32);

@@ -30,6 +30,8 @@ use std::simd::{
 
 #[cfg(feature = "fast_hash")]
 use ahash::AHashMap;
+use minarrow::kernels::bitmask::dispatch::and_masks;
+use minarrow::kernels::bitmask::popcount_bits;
 use minarrow::{Bitmask, Vec64};
 use num_traits::{Float, NumCast, One, ToPrimitive, Zero};
 
@@ -2560,6 +2562,49 @@ pub fn percentile_f<T: Float + Copy>(
     Some(*nth)
 }
 
+/// Computes percentile for float types with linear interpolation.
+///
+/// Unlike `percentile_f` which uses nearest-rank, this linearly interpolates
+/// between adjacent values for fractional positions. Matches numpy/scipy default
+/// behaviour for `np.percentile(data, p, interpolation='linear')`.
+#[inline(always)]
+pub fn percentile_lerp_f<T: Float + Copy>(
+    d: &[T],
+    m: Option<&Bitmask>,
+    null_count: Option<usize>,
+    p: f64,
+    sort: bool,
+) -> Option<T> {
+    let has_nulls = match null_count {
+        Some(n) => n > 0,
+        None => m.is_some(),
+    };
+
+    let mut v = if !has_nulls {
+        Vec64::from_slice(d)
+    } else {
+        collect_valid(d, m)
+    };
+
+    let n = v.len();
+    if n == 0 {
+        return None;
+    }
+    if n == 1 {
+        return Some(v[0]);
+    }
+
+    if sort {
+        sort_float(&mut v);
+    }
+
+    let pos = p.clamp(0.0, 1.0) * (n as f64 - 1.0);
+    let lo = pos.floor() as usize;
+    let hi = (lo + 1).min(n - 1);
+    let frac = T::from(pos - lo as f64).unwrap();
+    Some(v[lo] + (v[hi] - v[lo]) * frac)
+}
+
 /// Computes `q` quantiles for ordinal types, optionally sorted.
 #[inline(always)]
 pub fn quantile<T: Ord + Copy>(
@@ -3035,6 +3080,69 @@ pub fn agg_product<T: Copy + One + Mul<Output = T> + Zero + PartialEq + 'static>
         }
     }
     prod
+}
+
+// ───────────── Boolean Aggregation ─────────────
+
+/// Boolean max: true if any valid bit is true.
+///
+/// Returns `Some(true)` if at least one non-null value is true,
+/// `Some(false)` if all non-null values are false, or `None` if
+/// the window is empty or all-null.
+///
+/// Uses word-level AND + OR for the masked path instead of per-bit iteration.
+#[inline]
+pub fn bool_max(
+    data: &Bitmask,
+    null_mask: Option<&Bitmask>,
+    offset: usize,
+    len: usize,
+) -> Option<bool> {
+    if len == 0 {
+        return None;
+    }
+    match null_mask {
+        None => Some(popcount_bits((data, offset, len)) > 0),
+        Some(mask) => {
+            let valid = popcount_bits((mask, offset, len));
+            if valid == 0 {
+                return None;
+            }
+            let anded = and_masks((data, offset, len), (mask, offset, len));
+            Some(popcount_bits((&anded, 0, len)) > 0)
+        }
+    }
+}
+
+/// Boolean min: false if any valid bit is false.
+///
+/// Returns `Some(false)` if at least one non-null value is false,
+/// `Some(true)` if all non-null values are true, or `None` if
+/// the window is empty or all-null.
+///
+/// Uses word-level AND + popcount for the masked path.
+#[inline]
+pub fn bool_min(
+    data: &Bitmask,
+    null_mask: Option<&Bitmask>,
+    offset: usize,
+    len: usize,
+) -> Option<bool> {
+    if len == 0 {
+        return None;
+    }
+    match null_mask {
+        None => Some(popcount_bits((data, offset, len)) == len),
+        Some(mask) => {
+            let valid = popcount_bits((mask, offset, len));
+            if valid == 0 {
+                return None;
+            }
+            let anded = and_masks((data, offset, len), (mask, offset, len));
+            let true_count = popcount_bits((&anded, 0, len));
+            Some(true_count == valid)
+        }
+    }
 }
 
 #[cfg(test)]

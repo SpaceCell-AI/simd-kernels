@@ -486,12 +486,18 @@ pub fn incomplete_beta(a: f64, b: f64, x: f64) -> f64 {
 
         #[cfg(test)]
         if m <= 5 {
-            eprintln!("  ibeta({a},{b},{x}): m={m} h={:.18} delta={:.18}", h, delta);
+            eprintln!(
+                "  ibeta({a},{b},{x}): m={m} h={:.18} delta={:.18}",
+                h, delta
+            );
         }
 
         if (delta - 1.0).abs() < EPS {
             #[cfg(test)]
-            eprintln!("  ibeta({a},{b},{x}): converged at m={m}, result={:.18}", front * h);
+            eprintln!(
+                "  ibeta({a},{b},{x}): converged at m={m}, result={:.18}",
+                front * h
+            );
             break;
         }
     }
@@ -1566,7 +1572,11 @@ mod tests {
         assert!((f_cdf_scalar(10.0, 1.0, 1.0) - 0.805017770957863).abs() < 1e-14);
         // scipy.stats.f.cdf(3.0, 5, 10) == 0.9344424379061558
         let val = f_cdf_scalar(3.0, 5.0, 10.0);
-        assert!((val - 0.9344424379061558).abs() < 1e-10, "f_cdf_scalar(3.0, 5.0, 10.0) = {}, expected ~0.9344", val);
+        assert!(
+            (val - 0.9344424379061558).abs() < 1e-10,
+            "f_cdf_scalar(3.0, 5.0, 10.0) = {}, expected ~0.9344",
+            val
+        );
         // Edge: NaN
         assert!(f_cdf_scalar(f64::NAN, 5.0, 10.0).is_nan());
         assert!(f_cdf_scalar(1.0, 0.5, 10.0).is_nan()); // d1 < 1

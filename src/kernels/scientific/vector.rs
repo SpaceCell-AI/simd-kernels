@@ -228,6 +228,68 @@ pub fn histogram(
     counts
 }
 
+/// Fixed-bin histogram with `[left, right)` boundary semantics.
+///
+/// `edges` must be sorted and have at least 2 elements. Returns a count vector
+/// of length `edges.len() - 1` where `counts[i]` holds the number of values
+/// satisfying `edges[i] <= v < edges[i+1]`. Values outside the range are excluded.
+#[inline(always)]
+pub fn histogram_edges(
+    v: &[f64],
+    edges: &[f64],
+    mask: Option<&Bitmask>,
+    null_count: Option<usize>,
+) -> Vec<u64> {
+    debug_assert!(edges.len() >= 2, "histogram_edges: need at least 2 edges");
+    let n_bins = edges.len() - 1;
+    let mut counts = vec![0u64; n_bins];
+    let has_nulls = match null_count {
+        Some(n) => n > 0,
+        None => mask.is_some(),
+    };
+
+    if !has_nulls {
+        for &x in v {
+            if x < edges[0] || x >= edges[n_bins] {
+                continue;
+            }
+            let mut lo = 0usize;
+            let mut hi = edges.len() - 1;
+            while lo + 1 < hi {
+                let mid = (lo + hi) / 2;
+                if x < edges[mid] {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            counts[lo] += 1;
+        }
+    } else {
+        let mb = mask.expect("histogram_edges: mask required when nulls present");
+        for (i, &x) in v.iter().enumerate() {
+            if !unsafe { mb.get_unchecked(i) } {
+                continue;
+            }
+            if x < edges[0] || x >= edges[n_bins] {
+                continue;
+            }
+            let mut lo = 0usize;
+            let mut hi = edges.len() - 1;
+            while lo + 1 < hi {
+                let mid = (lo + hi) / 2;
+                if x < edges[mid] {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            counts[lo] += 1;
+        }
+    }
+    counts
+}
+
 /// Uniform reservoir sampling of size k.
 #[inline(always)]
 pub fn reservoir_sample(
@@ -658,6 +720,65 @@ pub fn vector_norm(
     Ok((sumsq + comp).sqrt())
 }
 
+/// Compute Huber weights in place: w[i] = min(1, c / |r_i|)
+/// where r_i = (vals[i] - location) / scale.
+///
+/// Elements where |r_i| <= c get weight 1.0 (inlier), larger residuals
+/// are downweighted proportional to c / |r|.
+#[inline]
+pub fn huber_weights(
+    vals: &[f64],
+    weights: &mut [f64],
+    location: f64,
+    scale: f64,
+    c: f64,
+) {
+    debug_assert_eq!(vals.len(), weights.len());
+    for (w, &x) in weights.iter_mut().zip(vals.iter()) {
+        let r = ((x - location) / scale).abs();
+        *w = if r <= c { 1.0 } else { c / r };
+    }
+}
+
+/// Compute Tukey biweight weights in place: w[i] = (1 - u^2)^2 if |r_i| < c, else 0
+/// where u = r_i / c and r_i = (vals[i] - location) / scale.
+///
+/// Completely rejects points with standardised residuals beyond c.
+#[inline]
+pub fn biweight_weights(
+    vals: &[f64],
+    weights: &mut [f64],
+    location: f64,
+    scale: f64,
+    c: f64,
+) {
+    debug_assert_eq!(vals.len(), weights.len());
+    for (w, &x) in weights.iter_mut().zip(vals.iter()) {
+        let r = ((x - location) / scale).abs();
+        *w = if r < c {
+            let u = r / c;
+            let t = 1.0 - u * u;
+            t * t
+        } else {
+            0.0
+        };
+    }
+}
+
+/// Compute weighted mean: sum(w * x) / sum(w).
+/// Returns NaN if sum of weights is zero.
+#[inline]
+pub fn weighted_mean(vals: &[f64], weights: &[f64]) -> f64 {
+    debug_assert_eq!(vals.len(), weights.len());
+    let mut sum_wx = 0.0_f64;
+    let mut sum_w = 0.0_f64;
+    for (&x, &w) in vals.iter().zip(weights.iter()) {
+        sum_wx += w * x;
+        sum_w += w;
+    }
+    if sum_w == 0.0 { f64::NAN } else { sum_wx / sum_w }
+}
+
 #[cfg(test)]
 mod tests {
     use minarrow::{Bitmask, vec64};
@@ -933,5 +1054,55 @@ mod tests {
             ulps < 4.0,
             "l2_norm off by {ulps:.1} ULPs: got {result}, expected {exact}",
         );
+    }
+
+    // ── Robust weight kernels ──
+
+    #[test]
+    fn huber_weights_inliers_get_one() {
+        let vals = [1.0, 2.0, 3.0, 4.0, 5.0];
+        let mut w = [0.0; 5];
+        // location=3, scale=1, c=1.345 (standard Huber constant)
+        huber_weights(&vals, &mut w, 3.0, 1.0, 1.345);
+        // |r| for vals: [2, 1, 0, 1, 2]. c=1.345
+        // indices 1,2,3 are inliers (|r| <= 1.345)
+        assert!((w[2] - 1.0).abs() < 1e-15, "center should be 1.0");
+        assert!((w[1] - 1.0).abs() < 1e-15, "r=1 inlier");
+        assert!((w[3] - 1.0).abs() < 1e-15, "r=1 inlier");
+        // indices 0,4 are outliers (|r|=2 > 1.345)
+        assert!((w[0] - 1.345 / 2.0).abs() < 1e-15, "r=2 outlier weight");
+        assert!((w[4] - 1.345 / 2.0).abs() < 1e-15, "r=2 outlier weight");
+    }
+
+    #[test]
+    fn biweight_weights_rejects_outliers() {
+        let vals = [0.0, 3.0, 100.0];
+        let mut w = [0.0; 3];
+        // location=3, scale=1, c=4.685 (standard biweight constant)
+        biweight_weights(&vals, &mut w, 3.0, 1.0, 4.685);
+        // r for vals: [3, 0, 97]
+        // index 0: |r|=3 < 4.685, gets nonzero weight
+        assert!(w[0] > 0.0, "r=3 should get nonzero weight");
+        // index 1: r=0, weight = (1-0)^2 = 1.0
+        assert!((w[1] - 1.0).abs() < 1e-15, "center should be 1.0");
+        // index 2: |r|=97 >> c, weight = 0.0
+        assert!((w[2] - 0.0).abs() < 1e-15, "extreme outlier should be 0.0");
+    }
+
+    #[test]
+    fn weighted_mean_basic() {
+        let vals = [1.0, 2.0, 3.0];
+        let w = [1.0, 1.0, 1.0];
+        assert!((weighted_mean(&vals, &w) - 2.0).abs() < 1e-15);
+
+        let w2 = [0.0, 0.0, 1.0];
+        assert!((weighted_mean(&vals, &w2) - 3.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn weighted_mean_zero_weights_nan() {
+        let vals = [1.0, 2.0];
+        let w = [0.0, 0.0];
+        assert!(weighted_mean(&vals, &w).is_nan());
     }
 }

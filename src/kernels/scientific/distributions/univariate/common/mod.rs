@@ -75,8 +75,8 @@ pub fn assert_close(a: f64, b: f64, tol: f64) {
 /// ```
 #[macro_export]
 macro_rules! common_tests {
-    // $name    – a unique test-group prefix
-    // $call:expr – *closure* that gets &[f64] and returns FloatArray<f64>
+    // $name    - a unique test-group prefix
+    // $call:expr - *closure* that gets &[f64] and returns FloatArray<f64>
     ($name:ident, $call:expr) => {
         mod $name {
             use super::*;

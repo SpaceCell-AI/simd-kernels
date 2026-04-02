@@ -775,7 +775,7 @@ pub fn wishart_sample(
 }
 
 /// Inverse-Wishart PDF:
-///   f(X) ∝ |Ψ|^{ν/2} / (2^{νp/2} Γₚ(ν/2)) · |X|^{-(ν+p+1)/2} · exp(–½ tr(Ψ X⁻¹))
+///   f(X) ∝ |Ψ|^{ν/2} / (2^{νp/2} Γₚ(ν/2)) · |X|^{-(ν+p+1)/2} · exp(-½ tr(Ψ X⁻¹))
 #[inline(always)]
 pub fn inv_wishart_pdf(
     x: Vec<&[f64]>,
@@ -809,7 +809,7 @@ pub fn inv_wishart_pdf(
             ));
         }
     }
-    // df must exceed p–1
+    // df must exceed p-1
     if df <= (p as f64 - 1.0) || !df.is_finite() {
         return Err(KernelError::InvalidArguments(
             "inv_wishart_pdf: df must be > p-1 and finite".into(),
@@ -891,10 +891,10 @@ pub fn inv_wishart_pdf(
     // 9) form the normalising constant in log-space
     let a = df * 0.5;
     let ln_gamma_p = ln_multivariate_gamma(p, a);
-    //   ln_norm = a·ln|Ψ| – (a·p)·ln 2 – ln Γₚ(a)
+    //   ln_norm = a·ln|Ψ| - (a·p)·ln 2 - ln Γₚ(a)
     let ln_norm = a * ln_det_psi - (a * p as f64) * 2.0f64.ln() - ln_gamma_p;
 
-    // 10) log-pdf = ln_norm – ((df+p+1)/2)·ln|X| – 0.5·tr(Ψ X⁻¹)
+    // 10) log-pdf = ln_norm - ((df+p+1)/2)·ln|X| - 0.5·tr(Ψ X⁻¹)
     let log_pdf = ln_norm - ((df + p as f64 + 1.0) * 0.5) * ln_det_x - 0.5 * trace;
     let pdf = log_pdf.exp();
 
@@ -907,7 +907,7 @@ pub fn inv_wishart_pdf(
 /// Inverse-Wishart sampling via Bartlett + inversion:
 ///   1) Compute Ψ⁻¹ = inv(Ψ) via cholesky+solve.
 ///   2) L = chol(Ψ⁻¹),  
-///   3) Bartlett: A_{ii} = √χ²(df – i + 1), A_{ij< i} ~ N(0,1).  
+///   3) Bartlett: A_{ii} = √χ²(df - i + 1), A_{ij< i} ~ N(0,1).  
 ///      Then W = L·A·Aᵀ·Lᵀ ~ Wishart(df, Ψ⁻¹).  
 ///   4) X = W⁻¹ is an Inv-Wishart(df, Ψ).
 pub fn inv_wishart_sample(
@@ -1463,7 +1463,7 @@ pub fn multivariate_beta_sample(
 
 /// Multivariate log-normal PDF:
 /// For each d-dim point in `x` (flattened, length = n_obs * d),
-///    f_X(x) = (2π)^{-d/2} |Σ|^{-1/2} exp{ -½ (ln x – μ)^T Σ⁻¹ (ln x – μ) }
+///    f_X(x) = (2π)^{-d/2} |Σ|^{-1/2} exp{ -½ (ln x - μ)^T Σ⁻¹ (ln x - μ) }
 ///             × ∏_{i=1}^d 1/x_i
 pub fn mv_lognormal_pdf(
     x: &[f64],
@@ -1634,7 +1634,7 @@ pub fn mv_lognormal_sample(
     let mut rng = rand::rng();
     let mut samples = Vec::with_capacity(n_samples);
 
-    // simple Box–Muller generator for standard normals
+    // simple Box-Muller generator for standard normals
     let mut have_extra = false;
     let mut extra = 0.0_f64;
 

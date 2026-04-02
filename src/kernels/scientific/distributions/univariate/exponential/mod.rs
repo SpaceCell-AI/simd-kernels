@@ -75,7 +75,7 @@ pub fn exponential_cdf_to(
     }
 }
 
-/// Exponential CDF: F(x|λ) = 1 – exp(–λ·x) for x ≥ 0, 0 otherwise.
+/// Exponential CDF: F(x|λ) = 1 - exp(-λ·x) for x ≥ 0, 0 otherwise.
 /// Error if λ ≤ 0 or non‐finite.
 #[inline(always)]
 pub fn exponential_cdf(
@@ -117,7 +117,7 @@ pub fn exponential_quantile_to(
     }
 }
 
-/// Exponential quantile (inverse CDF): Q(p|λ) = –ln(1–p)/λ, pure math
+/// Exponential quantile (inverse CDF): Q(p|λ) = -ln(1-p)/λ, pure math
 #[inline(always)]
 pub fn exponential_quantile(
     p: &[f64],
@@ -157,7 +157,7 @@ mod exponential_tests {
         );
     }
 
-    // exponential_pdf  — correctness
+    // exponential_pdf  - correctness
 
     #[test]
     fn exp_pdf_basic_values_lambda1() {
@@ -215,7 +215,7 @@ mod exponential_tests {
         }
     }
 
-    // exponential_cdf  — correctness
+    // exponential_cdf  - correctness
 
     #[test]
     fn exp_cdf_basic_values() {
@@ -247,7 +247,7 @@ mod exponential_tests {
         assert_close(out[0], 1.0, 1e-15);
     }
 
-    // exponential_quantile  — correctness & round-trip
+    // exponential_quantile  - correctness & round-trip
 
     #[test]
     fn exp_quantile_basic_values() {

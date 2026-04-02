@@ -44,7 +44,7 @@ use minarrow::utils::is_simd_aligned;
 use std::any::TypeId;
 
 /// Builds the Boolean result buffer.
-/// `len` – number of rows that will be written.
+/// `len` - number of rows that will be written.
 #[inline(always)]
 fn new_bool_buffer(len: usize) -> Bitmask {
     Bitmask::new_set_all(len, false)
@@ -614,7 +614,7 @@ pub fn cmp_between<T: PartialOrd + Copy + Numeric>(
             false,
         );
     }
-    // Fallback – floats or any other PartialOrd type
+    // Fallback - floats or any other PartialOrd type
     between_generic(lhs, rhs, None, false)
 }
 
@@ -1007,6 +1007,12 @@ pub fn in_array(input: &Array, values: &Array) -> Result<BooleanArray<()>, Kerne
         (Array::BooleanArray(a), Array::BooleanArray(b)) => {
             cmp_in_mask(&a.data, &b.data, a.null_mask.as_ref())
         }
+        #[cfg(feature = "default_categorical_8")]
+        (
+            Array::TextArray(TextArray::Categorical8(a)),
+            Array::TextArray(TextArray::Categorical8(b)),
+        ) => cmp_dict_in((**a).tuple_ref(0, a.len()), (**b).tuple_ref(0, b.len())),
+        #[cfg(any(not(feature = "default_categorical_8"), feature = "extended_categorical"))]
         (
             Array::TextArray(TextArray::Categorical32(a)),
             Array::TextArray(TextArray::Categorical32(b)),
@@ -1562,6 +1568,16 @@ mod tests {
         assert_bool(&out, &[false, true, false], None);
     }
 
+    #[cfg(feature = "default_categorical_8")]
+    #[test]
+    fn in_array_dictionary_dispatch() {
+        let inp = Array::from_categorical8(dict_arr::<u8>(&["aa", "bb", "cc"]));
+        let vals = Array::from_categorical8(dict_arr::<u8>(&["bb", "cc"]));
+        let out = in_array(&inp, &vals).unwrap();
+        assert_bool(&out, &[false, true, true], None);
+    }
+
+    #[cfg(not(feature = "default_categorical_8"))]
     #[test]
     fn in_array_dictionary_dispatch() {
         let inp = Array::from_categorical32(dict_arr::<u32>(&["aa", "bb", "cc"]));

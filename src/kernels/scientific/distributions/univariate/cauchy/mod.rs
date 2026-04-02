@@ -266,7 +266,7 @@ mod cauchy_tests {
         loc + scale * ((p - 0.5) * PI).tan()
     }
 
-    // PDF – correctness & consistency
+    // PDF - correctness & consistency
     #[test]
     fn cauchy_pdf_basic_values() {
         let xs = vec64![-2.0, -1.0, 0.0, 1.0, 2.0];
@@ -307,7 +307,7 @@ mod cauchy_tests {
         assert_eq!(out, vec64![0.0, 0.0]);
     }
 
-    // PDF – mask propagation
+    // PDF - mask propagation
     #[test]
     fn cauchy_pdf_mask_propagation() {
         let xs = vec64![0.0, 1.0, 2.0];
@@ -323,7 +323,7 @@ mod cauchy_tests {
         assert!(arr.data[1].is_nan());
     }
 
-    // CDF – correctness & symmetry
+    // CDF - correctness & symmetry
     #[test]
     fn cauchy_cdf_standard_values() {
         let xs = vec64![-2.0, -1.0, 0.0, 1.0, 2.0];
@@ -361,7 +361,7 @@ mod cauchy_tests {
         assert_close(out[1], 1.0, 1e-15);
     }
 
-    // CDF – mask / error handling
+    // CDF - mask / error handling
     #[test]
     fn cauchy_cdf_mask_nan_propagation() {
         let xs = vec64![0.0, f64::NAN, 3.0];
@@ -375,7 +375,7 @@ mod cauchy_tests {
         assert!(arr.data[2].is_nan());
     }
 
-    // Quantile – correctness & round-trip
+    // Quantile - correctness & round-trip
     #[test]
     fn cauchy_quantile_known_probs() {
         let ps = vec64![0.01, 0.25, 0.5, 0.75, 0.99];
@@ -440,7 +440,7 @@ mod cauchy_tests {
         assert!(out[2].is_nan() && out[3].is_nan() && out[4].is_nan());
     }
 
-    // Quantile – mask propagation
+    // Quantile - mask propagation
     #[test]
     fn cauchy_quantile_mask_propagation() {
         let ps = vec64![0.2, 0.5, 0.8];

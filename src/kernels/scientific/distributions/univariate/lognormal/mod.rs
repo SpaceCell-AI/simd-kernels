@@ -224,7 +224,7 @@ mod tests {
     const MU0: f64 = 0.0;
     const SIG1: f64 = 1.0;
 
-    //  lognormal_pdf – correctness
+    //  lognormal_pdf - correctness
 
     #[test]
     fn pdf_reference_values() {
@@ -279,7 +279,7 @@ mod tests {
         assert!(got[2] > 0.0);
     }
 
-    //  lognormal_cdf – correctness
+    //  lognormal_cdf - correctness
     #[test]
     fn cdf_reference_values() {
         let x = vec64![0.5, 1.0, 2.0, 4.0];
@@ -315,7 +315,7 @@ mod tests {
         assert!(arr.data[1].is_nan());
     }
 
-    //  lognormal_quantile – correctness
+    //  lognormal_quantile - correctness
 
     #[test]
     fn quantile_reference_values() {

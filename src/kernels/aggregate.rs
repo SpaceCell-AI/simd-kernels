@@ -1506,6 +1506,106 @@ macro_rules! impl_stat_moments4_int {
     };
 }
 
+#[inline(always)]
+pub fn merge_fourth_moments<const LANES: usize>(
+    n_a: &mut u64,
+    m1_a: &mut f64,
+    m2_a: &mut f64,
+    m3_a: &mut f64,
+    m4_a: &mut f64,
+    b: &(u64, f64, f64, f64, f64),
+) {
+    let (n_b, m1_b, m2_b, m3_b, m4_b) = *b;
+    if n_b == 0 {
+        return;
+    }
+
+    #[cfg(feature = "simd")]
+    {
+        use core::simd::Simd;
+
+        let na = *n_a as f64;
+        let nb = n_b as f64;
+        let nt = na + nb;
+        let delta = m1_b / nb - *m1_a / na;
+
+        // Prepare moment vectors of the correct width
+        let mut arr_a = [0.0_f64; LANES];
+        let mut arr_b = [0.0_f64; LANES];
+        arr_a[0] = *m1_a;
+        arr_a[1] = *m2_a;
+        arr_a[2] = *m3_a;
+        arr_a[3] = *m4_a;
+        arr_b[0] = m1_b;
+        arr_b[1] = m2_b;
+        arr_b[2] = m3_b;
+        arr_b[3] = m4_b;
+
+        let va = Simd::<f64, LANES>::from_array(arr_a);
+        let vb = Simd::<f64, LANES>::from_array(arr_b);
+
+        // Correction terms - scalar then broadcast
+        let term2 = delta * delta * na * nb / nt;
+        let term3 = delta * delta * delta * na * nb * (na - nb) / (nt * nt)
+            + 3.0 * delta * (na * m2_b - nb * *m2_a) / nt;
+        let term4 = delta.powi(4) * na * nb * (na * na - na * nb + nb * nb) / (nt * nt * nt)
+            + 6.0 * delta * delta * (na * na * m2_b + nb * nb * *m2_a) / (nt * nt)
+            + 4.0 * delta * (na * m3_b - nb * *m3_a) / nt;
+
+        // Prepare masks of correct width
+        let mut mask2 = [0.0_f64; LANES];
+        let mut mask3 = [0.0_f64; LANES];
+        let mut mask4 = [0.0_f64; LANES];
+        mask2[1] = 1.0;
+        mask3[2] = 1.0;
+        mask4[3] = 1.0;
+
+        let mask2 = Simd::<f64, LANES>::from_array(mask2);
+        let mask3 = Simd::<f64, LANES>::from_array(mask3);
+        let mask4 = Simd::<f64, LANES>::from_array(mask4);
+
+        // Sum A, B, and correction terms in their respective slots
+        let result = va
+            + vb
+            + mask2 * Simd::splat(term2)
+            + mask3 * Simd::splat(term3)
+            + mask4 * Simd::splat(term4);
+
+        let arr = result.to_array();
+        *m1_a = arr[0];
+        *m2_a = arr[1];
+        *m3_a = arr[2];
+        *m4_a = arr[3];
+        *n_a += n_b;
+    }
+
+    #[cfg(not(feature = "simd"))]
+    {
+        // Scalar fallback - Chan-Golub 4th-moment merge
+        let n_a_f = *n_a as f64;
+        let n_b_f = n_b as f64;
+        let n_tot = n_a_f + n_b_f;
+        let delta = m1_b / n_b_f - *m1_a / n_a_f;
+        let delta2 = delta * delta;
+        let delta3 = delta2 * delta;
+        let delta4 = delta3 * delta;
+
+        *m4_a += m4_b
+            + delta4 * n_a_f * n_b_f * (n_a_f * n_a_f - n_a_f * n_b_f + n_b_f * n_b_f)
+                / (n_tot * n_tot * n_tot)
+            + 6.0 * delta2 * (n_a_f * n_a_f * m2_b + n_b_f * n_b_f * *m2_a) / (n_tot * n_tot)
+            + 4.0 * delta * (n_a_f * m3_b - n_b_f * *m3_a) / n_tot;
+
+        *m3_a += m3_b
+            + delta3 * n_a_f * n_b_f * (n_a_f - n_b_f) / (n_tot * n_tot)
+            + 3.0 * delta * (n_a_f * m2_b - n_b_f * *m2_a) / n_tot;
+
+        *m2_a += m2_b + delta2 * n_a_f * n_b_f / n_tot;
+        *m1_a += m1_b;
+        *n_a += n_b;
+    }
+}
+
 // Weighted-Sum-2  &  Pair-Stats kernels
 macro_rules! impl_weighted_sum2_float {
     ($fn:ident, $ty:ty, $LANES:expr) => {
@@ -1859,7 +1959,7 @@ where
     (n, m1, m2, m3, m4)
 }
 
-//  Skewness & Kurtosis — float
+//  Skewness & Kurtosis - float
 /// Implements skewness and kurtosis calculation functions for floating-point types.
 macro_rules! impl_skew_kurt_float {
     ($ty:ident, $skew_fn:ident, $kurt_fn:ident) => {
@@ -1960,7 +2060,7 @@ macro_rules! impl_skew_kurt_float {
     };
 }
 
-//  Skewness & Kurtosis — Integer
+//  Skewness & Kurtosis - Integer
 /// Implements skewness and kurtosis calculation functions for integer types.
 macro_rules! impl_skew_kurt_int {
     ($ty:ident, $skew_fn:ident, $kurt_fn:ident) => {

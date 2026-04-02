@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Commercial licensing available. See LICENSE and LICENSING.md.
 
-//! # Statistical Sampling Module — High-Performance Pseudorandom Distribution Sampling
+//! # Statistical Sampling Module - High-Performance Pseudorandom Distribution Sampling
 //!
 //! Pseudorandom number generation kernels providing sampling from statistical
 //! distributions with strong performance and distributional accuracy.
@@ -30,7 +30,7 @@ impl Sampler {
         sample_standard_normal(&mut self.rng)
     }
 
-    /// Marsaglia–Tsang for Γ(shape, scale). Preconditions: shape > 0, scale > 0.
+    /// Marsaglia-Tsang for Γ(shape, scale). Preconditions: shape > 0, scale > 0.
     #[inline]
     fn sample_gamma(&mut self, shape: f64, scale: f64) -> f64 {
         sample_gamma(&mut self.rng, shape, scale)
@@ -83,7 +83,7 @@ impl Sampler {
     }
 }
 
-// Box–Muller to get one N(0,1)
+// Box-Muller to get one N(0,1)
 /// Generates a single sample from the standard normal distribution N(0,1).
 #[inline]
 pub fn sample_standard_normal<R: Rng + ?Sized>(rng: &mut R) -> f64 {
@@ -94,7 +94,7 @@ pub fn sample_standard_normal<R: Rng + ?Sized>(rng: &mut R) -> f64 {
     r * (2.0 * PI * u2).cos()
 }
 
-/// Generates a single sample from the Gamma distribution using the Marsaglia–Tsang algorithm.
+/// Generates a single sample from the Gamma distribution using the Marsaglia-Tsang algorithm.
 /// Preconditions: shape > 0, scale > 0.
 #[inline]
 pub fn sample_gamma<R: Rng + ?Sized>(rng: &mut R, shape: f64, scale: f64) -> f64 {

@@ -8,7 +8,7 @@ SIMD-Kernels provides vectorised arithmetic, statistics, scientific functions, a
 
 Writing SIMD by hand means maintaining separate code paths for SSE2, AVX2, AVX-512, and NEON. Most libraries either avoid SIMD entirely, rely on auto-vectorisation hints that may or may not fire, or use trait-object dispatch that defeats the optimiser at the call boundary.
 
-SIMD-Kernels is built directly on [`std::simd`](https://doc.rust-lang.org/std/simd/), Rust's portable SIMD module. You write one kernel - the compiler lowers it to the best available ISA on each target. Every kernel operates on concrete typed slices (`&[f64]`, `&[i32]`) with explicit null-mask support following Apache Arrow semantics. No `dyn`, no `Any`, no runtime downcasting.
+SIMD-Kernels is built directly on [`std::simd`](https://doc.rust-lang.org/std/simd/), Rust's portable SIMD module. You write one kernel - the compiler lowers it to the best available ISA on each target. Every kernel operates on concrete typed slices (`&[f64]`, `&[i32]`) with null-mask support following Apache Arrow semantics. No `dyn`, no `Any`, no runtime downcasting.
 
 ## Quick Start
 

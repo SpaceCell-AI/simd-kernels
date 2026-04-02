@@ -35,7 +35,7 @@ include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
 #[cfg(feature = "simd")]
 use std::simd::{Mask, Select, Simd, num::SimdFloat};
 
-use minarrow::{Bitmask, FloatArray, Vec64};
+use minarrow::{Bitmask, FloatArray, Vec64, vec64};
 
 #[cfg(feature = "simd")]
 use crate::kernels::aggregate::neumaier_simd_add;
@@ -66,7 +66,7 @@ pub fn dot(v1: &[f64], v2: &[f64], null_mask: Option<&Bitmask>, null_count: Opti
         let mut comp_v = Simd::<f64, N>::splat(0.0);
         let mut i = 0;
         if !needs_nulls {
-            // fast path: no nulls — compensated per-lane accumulation
+            // fast path: no nulls - compensated per-lane accumulation
             while i + N <= len {
                 let a = Simd::<f64, N>::from_slice(&v1[i..i + N]);
                 let b = Simd::<f64, N>::from_slice(&v2[i..i + N]);
@@ -99,7 +99,7 @@ pub fn dot(v1: &[f64], v2: &[f64], null_mask: Option<&Bitmask>, null_count: Opti
         return acc;
     }
 
-    // Scalar fallback — alignment check failed or no simd flag
+    // Scalar fallback - alignment check failed or no simd flag
     let needs_nulls = has_nulls(null_count, null_mask);
     let mut acc = 0.0_f64;
     let mut comp = 0.0_f64;
@@ -239,10 +239,10 @@ pub fn histogram_edges(
     edges: &[f64],
     mask: Option<&Bitmask>,
     null_count: Option<usize>,
-) -> Vec<u64> {
+) -> Vec64<u64> {
     debug_assert!(edges.len() >= 2, "histogram_edges: need at least 2 edges");
     let n_bins = edges.len() - 1;
-    let mut counts = vec![0u64; n_bins];
+    let mut counts = vec64![0u64; n_bins];
     let has_nulls = match null_count {
         Some(n) => n > 0,
         None => mask.is_some(),
@@ -654,7 +654,7 @@ pub fn vector_norm(
 
         // only vectorise when contiguous
         if incx == 1 && !mask_present {
-            // dense contiguous path — compensated per-lane accumulation
+            // dense contiguous path - compensated per-lane accumulation
             let mut sum_v = Simd::<f64, LANES>::splat(0.0);
             let mut comp_v = Simd::<f64, LANES>::splat(0.0);
             let mut i = 0;
@@ -672,7 +672,7 @@ pub fn vector_norm(
         }
 
         if incx == 1 && mask_present {
-            // contiguous + null-aware — compensated per-lane accumulation
+            // contiguous + null-aware - compensated per-lane accumulation
             let mb = null_mask.unwrap();
             let bytes = mb.as_bytes();
             let mut sum_v = Simd::<f64, LANES>::splat(0.0);
@@ -696,7 +696,7 @@ pub fn vector_norm(
         }
     }
 
-    // scalar (possibly strided) fallback — compensated
+    // scalar (possibly strided) fallback - compensated
     let mut sumsq = 0.0_f64;
     let mut comp = 0.0_f64;
     if !mask_present {

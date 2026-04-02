@@ -164,7 +164,7 @@ mod tests {
         choose(k + r - 1, k) * p.powi(r as i32) * (1.0 - p).powi(k as i32)
     }
 
-    //  PMF – correctness
+    //  PMF - correctness
     #[test]
     fn pmf_reference_values() {
         let r = 3;
@@ -190,7 +190,7 @@ mod tests {
         assert_close(sum, 1.0, 5e-6);
     }
 
-    //  CDF – correctness & relationship with PMF
+    //  CDF - correctness & relationship with PMF
     #[test]
     fn cdf_matches_cumulative_pmf() {
         let r = 2;
@@ -213,7 +213,7 @@ mod tests {
         }
     }
 
-    //  Quantile – basic values & round-trip
+    //  Quantile - basic values & round-trip
     #[test]
     fn quantile_basic_cases() {
         let r = 5;

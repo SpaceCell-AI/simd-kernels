@@ -131,7 +131,7 @@ pub fn gemm_4x4_microkernel(
 pub fn trisolve_2x2(
     upper: bool,
     a: &mut [f64; 4], // 2×2 triangular matrix, overwritten by LAPACK
-    b: &mut [f64; 2], // RHS – will contain the solution on return
+    b: &mut [f64; 2], // RHS - will contain the solution on return
 ) -> Result<(), &'static str> {
     unsafe {
         dtrsv(

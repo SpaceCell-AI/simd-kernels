@@ -112,9 +112,9 @@ then claimed it is 'faster'.
 
 We particularly welcome contributions in these areas:
 
-* Kernel Coverage – Add kernels for missing primitives
-* Numerical Accuracy – Validate against SciPy, write regression tests
-* SIMD Optimisation – Improve SIMD coverage, improve speed
+* Kernel Coverage - Add kernels for missing primitives
+* Numerical Accuracy - Validate against SciPy, write regression tests
+* SIMD Optimisation - Improve SIMD coverage, improve speed
 
 ### Breaking changes
 

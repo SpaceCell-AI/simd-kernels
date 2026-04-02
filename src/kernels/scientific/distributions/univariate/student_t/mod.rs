@@ -161,7 +161,7 @@ mod tests {
         );
     }
 
-    // PDF – reference values & properties
+    // PDF - reference values & properties
     #[test]
     fn pdf_reference_values_df1() {
         // df = 1  (Cauchy)  SciPy: stats.t.pdf([0,1,2],1) == [0.318309886, 0.159154943, 0.063661977]
@@ -200,7 +200,7 @@ mod tests {
         }
     }
 
-    // CDF – symmetry & limits
+    // CDF - symmetry & limits
     #[test]
     fn cdf_symmetry() {
         let df = 5.0;
@@ -221,7 +221,7 @@ mod tests {
         assert_close(out[1], 1.0, 1e-15);
     }
 
-    // Quantile – round-trip & special points
+    // Quantile - round-trip & special points
     #[test]
     fn quantile_end_points() {
         let df = 4.0;

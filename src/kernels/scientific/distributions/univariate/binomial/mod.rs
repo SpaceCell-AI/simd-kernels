@@ -203,7 +203,7 @@ mod binomial_tests {
     const N_REF: u64 = 10;
     const P_REF: f64 = 0.3;
 
-    // binomial_pmf – correctness
+    // binomial_pmf - correctness
 
     #[test]
     fn binomial_pmf_exact_values() {
@@ -236,7 +236,7 @@ mod binomial_tests {
         assert!(arr.iter().all(|&v| v == 0.0));
     }
 
-    // binomial_pmf – mask propagation
+    // binomial_pmf - mask propagation
 
     #[test]
     fn binomial_pmf_mask_propagation() {
@@ -251,7 +251,7 @@ mod binomial_tests {
         assert!(out.data[1].is_nan());
     }
 
-    // binomial_cdf – correctness & monotonicity
+    // binomial_cdf - correctness & monotonicity
 
     #[test]
     fn binomial_cdf_exact_values() {
@@ -274,7 +274,7 @@ mod binomial_tests {
         assert_close(arr[N_REF as usize], 1.0, 1e-14); // last  = 1
     }
 
-    // binomial_quantile – correctness & round-trip (small n)
+    // binomial_quantile - correctness & round-trip (small n)
 
     #[test]
     fn binomial_quantile_exact_small_n() {

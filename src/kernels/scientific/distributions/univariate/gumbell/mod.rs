@@ -313,7 +313,7 @@ mod gumbel_tests {
         -(-p.ln()).ln()
     }
 
-    // gumbel_pdf  — correctness & scalar-bulk consistency
+    // gumbel_pdf  - correctness & scalar-bulk consistency
 
     // TODO: Double check SIMD vec64 align
     #[test]
@@ -337,7 +337,7 @@ mod gumbel_tests {
         }
     }
 
-    // gumbel_cdf  — correctness & tail behaviour
+    // gumbel_cdf  - correctness & tail behaviour
 
     // TODO: Double check SIMD vec64 align
     #[test]
@@ -358,7 +358,7 @@ mod gumbel_tests {
         assert_close(out[1], 1.0, 1e-15);
     }
 
-    // gumbel_quantile  — correctness & round-trip
+    // gumbel_quantile  - correctness & round-trip
 
     // TODO: Double check SIMD vec64 align
     #[test]

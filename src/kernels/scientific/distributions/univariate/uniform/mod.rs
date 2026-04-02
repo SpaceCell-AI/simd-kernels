@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn quantile_mask_and_domain_handling() {
-        // include out-of-range probs and an explicit null
+        // include out-of-range probs and an null
         let p = vec64![-0.1, 0.0, 0.3, 1.0, 1.2];
         let mut mask = Bitmask::new_set_all(5, true);
         unsafe { mask.set_unchecked(1, false) }; // null index 1

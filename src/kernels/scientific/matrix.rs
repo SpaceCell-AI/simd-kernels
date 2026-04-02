@@ -4,11 +4,11 @@
 
 //! # **Matrix Operations Kernels Module** - *Linear Algebra and Numerical Computing*
 //!
-//! ********************************************************************************************************************
+//! **************************************************************************************************
 //! ⚠️ Warning: This module has not been fully tested, and is not ready for production use.
 //! This warning applies to all multivariate kernels in *SIMD-kernels*, which are to be finalised
 //! in an upcoming release.
-//! ********************************************************************************************************************
+//! **************************************************************************************************
 //!
 //! All matrices are stored in **column-major** order (Fortran/BLAS convention).
 //! Leading dimension parameters (`lda`, `ldb`, etc.) specify the physical stride

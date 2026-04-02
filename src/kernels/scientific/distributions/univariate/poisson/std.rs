@@ -212,7 +212,7 @@ pub fn poisson_quantile_std_to(
         } else if lambda == 0.0 {
             0.0
         } else {
-            // Cornish–Fisher start
+            // Cornish-Fisher start
             let mu = lambda;
             let sigma = lambda.sqrt();
             let g1 = 1.0 / sigma;

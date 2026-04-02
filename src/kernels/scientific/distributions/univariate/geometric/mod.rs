@@ -276,7 +276,7 @@ mod geometric_tests {
         );
     }
 
-    // geometric_pmf  — correctness
+    // geometric_pmf  - correctness
 
     #[test]
     fn geom_pmf_basic_values() {
@@ -302,7 +302,7 @@ mod geometric_tests {
         }
     }
 
-    // geometric_cdf  — correctness & tails (SciPy: CDF(0)=0)
+    // geometric_cdf  - correctness & tails (SciPy: CDF(0)=0)
 
     #[test]
     fn geom_cdf_basic_values() {
@@ -329,7 +329,7 @@ mod geometric_tests {
         assert_close(out[1], 1.0, 1e-12); // very large k -> 1
     }
 
-    // geometric_quantile  — correctness & round-trip
+    // geometric_quantile  - correctness & round-trip
 
     #[test]
     fn geom_quantile_basic() {

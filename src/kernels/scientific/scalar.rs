@@ -38,10 +38,10 @@ use minarrow::{Bitmask, FloatArray, Vec64};
 /// The `_elem` variant is for kernel fusion where multiple operations are composed
 /// into a single loop, keeping intermediate values in registers instead of memory.
 ///
-/// `$name`      – allocating function name
-/// `$name_to`   – zero-allocation function name
-/// `$name_elem` – element-wise function for fusion
-/// `$expr`      – expression mapping a scalar `f64 -> f64`
+/// `$name`      - allocating function name
+/// `$name_to`   - zero-allocation function name
+/// `$name_elem` - element-wise function for fusion
+/// `$expr`      - expression mapping a scalar `f64 -> f64`
 #[macro_export]
 macro_rules! impl_vecmap {
     ($name:ident, $name_to:ident, $name_elem:ident, $expr:expr) => {

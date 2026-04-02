@@ -193,7 +193,7 @@ mod tests {
         ((-lambda) + kf * lambda.ln() - ln_gamma_plus1(kf)).exp()
     }
 
-    // PMF – numerical checks
+    // PMF - numerical checks
     #[test]
     fn pmf_reference_values() {
         let lambda = 3.5;
@@ -215,7 +215,7 @@ mod tests {
         assert_close(sum, 1.0, 1e-10);
     }
 
-    // CDF – comparison with cumulative PMF
+    // CDF - comparison with cumulative PMF
     #[test]
     fn cdf_matches_manual_cumulative() {
         let lambda = 4.2;
@@ -235,7 +235,7 @@ mod tests {
         }
     }
 
-    // Quantile – sanity & round-trip
+    // Quantile - sanity & round-trip
     #[test]
     fn quantile_basic_cases() {
         let lambda = 5.0;

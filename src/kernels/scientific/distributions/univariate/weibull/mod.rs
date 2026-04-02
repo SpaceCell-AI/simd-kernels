@@ -310,7 +310,7 @@ mod tests {
         }
     }
 
-    // PDF – core correctness
+    // PDF - core correctness
     #[test]
     fn pdf_reference_values() {
         let x = vec64![-1.0, 0.0, 0.5, 1.2, 4.0];
@@ -332,7 +332,7 @@ mod tests {
         }
     }
 
-    // CDF – correctness and tails
+    // CDF - correctness and tails
     #[test]
     fn cdf_reference_values() {
         let x = vec64![-2.0, 0.0, 0.8, 2.5, 10.0];
@@ -353,7 +353,7 @@ mod tests {
         assert_close(out[2], 1.0, 1e-15);
     }
 
-    // Quantile – reference, round-trip, edge & domain
+    // Quantile - reference, round-trip, edge & domain
     #[test]
     fn quantile_reference_values() {
         let p = vec64![0.0, 0.1, 0.5, 0.9, 1.0];

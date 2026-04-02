@@ -296,7 +296,7 @@ mod gamma_tests {
         );
     }
 
-    // gamma_pdf  — correctness
+    // gamma_pdf  - correctness
 
     #[test]
     fn gamma_pdf_shape2_rate1_values() {
@@ -348,7 +348,7 @@ mod gamma_tests {
         }
     }
 
-    // gamma_cdf  — correctness
+    // gamma_cdf  - correctness
 
     #[test]
     fn gamma_cdf_shape2_rate1_values() {
@@ -375,7 +375,7 @@ mod gamma_tests {
         assert_close(out[1], 1.0, 1e-12); // huge x
     }
 
-    // gamma_quantile  — correctness & round-trip
+    // gamma_quantile  - correctness & round-trip
 
     #[test]
     fn gamma_quantile_bounds_and_domain() {

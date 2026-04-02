@@ -114,7 +114,7 @@ pub fn exponential_cdf_std_to(
     Ok(())
 }
 
-/// Exponential CDF: F(x|λ) = 1 – exp(–λ·x) for x ≥ 0, 0 otherwise.
+/// Exponential CDF: F(x|λ) = 1 - exp(-λ·x) for x ≥ 0, 0 otherwise.
 /// Error if λ ≤ 0 or non‐finite.
 #[inline(always)]
 pub fn exponential_cdf_std(
@@ -169,7 +169,7 @@ pub fn exponential_quantile_std_to(
     Ok(())
 }
 
-/// Exponential quantile (inverse CDF): Q(p|λ) = –ln(1–p)/λ, pure math
+/// Exponential quantile (inverse CDF): Q(p|λ) = -ln(1-p)/λ, pure math
 #[inline(always)]
 pub fn exponential_quantile_std(
     p: &[f64],

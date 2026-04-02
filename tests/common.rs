@@ -42,7 +42,7 @@ pub struct TestColumns {
 }
 
 impl TestColumns {
-    /// build once – reuse in every `#[test]`
+    /// build once - reuse in every `#[test]`
     pub fn new() -> Self {
         // numeric helpers
         fn int_arr<T: Integer>(vals: &[T]) -> IntegerArray<T> {
@@ -108,6 +108,15 @@ impl TestColumns {
             (dense, n)
         };
 
+        #[cfg(feature = "default_categorical_8")]
+        let dict_dense = {
+            let mut d = CategoricalArray::<u8>::default();
+            for s in ["x", "y", "x", "z", "y"] {
+                d.push_str(s);
+            }
+            Array::TextArray(TextArray::Categorical8(d.into()))
+        };
+        #[cfg(any(not(feature = "default_categorical_8"), feature = "extended_categorical"))]
         let dict_dense = {
             let mut d = CategoricalArray::<u32>::default();
             for s in ["x", "y", "x", "z", "y"] {
@@ -115,6 +124,19 @@ impl TestColumns {
             }
             Array::TextArray(TextArray::Categorical32(d.into()))
         };
+        #[cfg(feature = "default_categorical_8")]
+        let dict_nulls = {
+            let mut d = {
+                let mut arr = CategoricalArray::<u8>::default();
+                for s in ["x", "y", "x", "z", "y"] {
+                    arr.push_str(s);
+                }
+                arr
+            };
+            d.set_null(3);
+            Array::TextArray(TextArray::Categorical8(d.into()))
+        };
+        #[cfg(any(not(feature = "default_categorical_8"), feature = "extended_categorical"))]
         let dict_nulls = {
             let mut d = {
                 let mut arr = CategoricalArray::<u32>::default();

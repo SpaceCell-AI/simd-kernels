@@ -313,7 +313,7 @@ mod beta_tests {
         );
     }
 
-    // beta_pdf  –  correctness
+    // beta_pdf  -  correctness
 
     #[test]
     fn beta_pdf_exact_values() {
@@ -346,7 +346,7 @@ mod beta_tests {
         assert_eq!(arr[2], 0.0);
     }
 
-    // beta_pdf  –  mask propagation
+    // beta_pdf  -  mask propagation
 
     #[test]
     fn beta_pdf_mask_and_nulls() {
@@ -361,7 +361,7 @@ mod beta_tests {
         assert!(out.data[1].is_nan());
     }
 
-    // beta_cdf  –  correctness
+    // beta_cdf  -  correctness
 
     #[test]
     fn beta_cdf_exact_values() {
@@ -388,7 +388,7 @@ mod beta_tests {
         assert_close(arr[3], 1.0, 1e-15);
     }
 
-    // beta_quantile  –  correctness & round-trip
+    // beta_quantile  -  correctness & round-trip
 
     #[test]
     fn beta_quantile_round_trip() {

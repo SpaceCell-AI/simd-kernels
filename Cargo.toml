@@ -53,6 +53,8 @@ fourier_transforms = ["dep:num-complex"]
 # Enables CDF and PDF probability distributions
 probability_distributions = []
 extended_numeric_types = ["minarrow/extended_numeric_types"]
+default_categorical_8 = ["minarrow/default_categorical_8"]
+extended_categorical = ["default_categorical_8", "minarrow/extended_categorical"]
 
 # SIMD-accelerated radix sort for maximum integer sorting performance
 simd_sort = ["dep:voracious_radix_sort"]
@@ -63,4 +65,5 @@ default = [
     "simd",
     "fourier_transforms",
     "universal_functions",
+    "default_categorical_8",
 ]

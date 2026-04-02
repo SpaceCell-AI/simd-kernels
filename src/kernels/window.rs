@@ -905,7 +905,6 @@ pub fn rolling_max_float<T: Float + Copy + Zero>(
 ///
 /// let result = rolling_count((0, 5), 3); // 5 elements, window size 3
 /// ```
-#[inline]
 /// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn rolling_count_to(len: usize, subwindow: usize, out: &mut [i32], out_mask: &mut Bitmask) {
@@ -1279,7 +1278,6 @@ where
 /// let result = dense_rank_int((&arr, 0, arr.len())).unwrap();
 /// // Output: [1, 3, 2, 3] - dense ranking with tied values
 /// ```
-#[inline(always)]
 /// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline(always)]
 pub fn dense_rank_int_to<T: Ord + Copy>(

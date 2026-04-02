@@ -33,13 +33,13 @@ pub enum SortAlgorithm {
     Comparison,
     /// LSD radix sort for integers, O(n*k).
     ///
-    /// Always unstable — the `config.stable` flag is ignored when this
-    /// algorithm is explicitly selected.
+    /// Always unstable - the `config.stable` flag is ignored when this
+    /// algorithm is selected.
     Radix,
     /// SIMD-accelerated radix sort (requires `simd_sort` feature).
     ///
-    /// Always unstable — the `config.stable` flag is ignored when this
-    /// algorithm is explicitly selected.
+    /// Always unstable - the `config.stable` flag is ignored when this
+    /// algorithm is selected.
     #[cfg(feature = "simd_sort")]
     Simd,
 }
@@ -520,7 +520,7 @@ pub fn argsort<T: Ord>(data: &[T], descending: bool) -> Vec<usize> {
     argsort_with_stability(data, descending, false)
 }
 
-/// Comparison-based argsort with explicit stability control
+/// Comparison-based argsort with stability control
 #[inline]
 pub fn argsort_with_stability<T: Ord>(data: &[T], descending: bool, stable: bool) -> Vec<usize> {
     let n = data.len();
@@ -551,7 +551,7 @@ pub fn argsort_float<T: Float>(data: &[T], descending: bool) -> Vec<usize> {
     argsort_float_with_stability(data, descending, false)
 }
 
-/// Argsort for floats with proper NaN handling and explicit stability control
+/// Argsort for floats with proper NaN handling and stability control
 #[inline]
 pub fn argsort_float_with_stability<T: Float>(
     data: &[T],
@@ -586,7 +586,7 @@ pub fn argsort_str(data: &[&str], descending: bool) -> Vec<usize> {
     argsort_str_with_stability(data, descending, false)
 }
 
-/// Argsort for string slices with explicit stability control
+/// Argsort for string slices with stability control
 #[inline]
 pub fn argsort_str_with_stability(data: &[&str], descending: bool, stable: bool) -> Vec<usize> {
     let n = data.len();
@@ -618,7 +618,7 @@ pub fn argsort_string_array(offsets: &[usize], values: &str, descending: bool) -
     argsort_string_array_with_stability(offsets, values, descending, false)
 }
 
-/// Argsort for StringArray with explicit stability control
+/// Argsort for StringArray with stability control
 pub fn argsort_string_array_with_stability(
     offsets: &[usize],
     values: &str,

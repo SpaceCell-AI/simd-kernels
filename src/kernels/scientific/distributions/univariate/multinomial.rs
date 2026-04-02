@@ -4,11 +4,11 @@
 
 //! # Multinomial Distribution
 //!
-//! ********************************************************************************************************************
+//! **************************************************************************************************
 //! ⚠️ Warning: This module has not been fully tested, and is not ready for production use.
 //! This warning applies to all multivariate kernels in *SIMD-kernels*, which are to be finalised
 //! in an upcoming release.
-//! ********************************************************************************************************************
+//! **************************************************************************************************
 //!
 //! The multinomial distribution generalises the binomial distribution to multiple categories,
 //! modelling the probability of observing specific counts across k mutually exclusive outcomes
@@ -198,7 +198,7 @@ mod tests {
         fact(n) / (fact(k) * fact(n - k))
     }
 
-    //  multinomial_pmf – correctness
+    //  multinomial_pmf - correctness
     #[test]
     fn pmf_reference_single_row() {
         // n = 4;  p = (0.2, 0.5, 0.3);  x = (1,2,1)
@@ -257,7 +257,7 @@ mod tests {
         let p = vec64![0.2, 0.3, 0.5];
         let x = vec64![
             1, 1, 1, // row 0
-            0, 0, 0, // row 1 – will be masked
+            0, 0, 0, // row 1 - will be masked
             3, 0, 0
         ]; // row 2
         let mut mask = Bitmask::new_set_all(3, true);

@@ -104,7 +104,7 @@ pub fn inv_reg_lower_gamma(a: f64, p: f64) -> f64 {
     let mut x = if p < 1e-8 {
         (p * gamma_func(a + 1.0)).powf(1.0 / a).max(1e-300)
     } else if a > 1.0 {
-        // Wilson–Hilferty style guess (no normal inverse needed).
+        // Wilson-Hilferty style guess (no normal inverse needed).
         let t = (-2.0 * p.ln()).sqrt();
         let s = (t - (2.0 * a - 1.0).sqrt()) / (2.0 * (a - 1.0).sqrt());
         (a * (1.0 - s + (s * s) / 3.0)).max(1e-300)
@@ -360,7 +360,7 @@ pub fn gamma_func(x: f64) -> f64 {
             }
         }
 
-        // General positive x  — Lanczos via lnΓ
+        // General positive x  - Lanczos via lnΓ
         return ln_gamma(x).exp();
     }
 
@@ -538,7 +538,7 @@ pub fn incomplete_beta_inv(a: f64, b: f64, p: f64) -> f64 {
         return 0.0;
     } // mass concentrated at 0
 
-    // Initial Cornish-Fisher / Wilson–Hilferty seed
+    // Initial Cornish-Fisher / Wilson-Hilferty seed
     let pp = if p < 0.5 { p } else { 1.0 - p };
     let t = (-2.0 * pp.ln()).sqrt();
     let mut x: f64;
@@ -568,7 +568,7 @@ pub fn incomplete_beta_inv(a: f64, b: f64, p: f64) -> f64 {
         };
     }
 
-    // Clamp to open interval (0,1) – avoids log/derivative blow-ups
+    // Clamp to open interval (0,1) - avoids log/derivative blow-ups
     const EPS_X: f64 = 1e-15;
     if x <= 0.0 {
         x = EPS_X;
@@ -611,7 +611,7 @@ pub fn incomplete_beta_inv(a: f64, b: f64, p: f64) -> f64 {
         x = x_new;
     }
 
-    // Bracketed bisection – fallback
+    // Bracketed bisection - fallback
     let mut lo = 0.0;
     let mut hi = 1.0;
 
@@ -738,7 +738,7 @@ where
         - ln_gamma_simd(n - k + Simd::splat(1.0))
 }
 
-/// Compute the Cornish–Fisher-based binomial quantile for a single `pi`.
+/// Compute the Cornish-Fisher-based binomial quantile for a single `pi`.
 /// Returns `f64::NAN` for any out-of-range or non-finite input.
 /// Does not handle nulls; caller is responsible.
 #[inline(always)]
@@ -1024,7 +1024,7 @@ pub fn chi2_newton_refine(mut x: f64, a: f64, p: f64) -> f64 {
 /// superior accuracy compared to direct integration methods.
 #[inline(always)]
 pub fn normal_cdf_scalar(z: f64) -> f64 {
-    // high-accuracy CDF:  0.5·erfc(–z/√2) on the left, 1 – 0.5·erfc(z/√2) on the right
+    // high-accuracy CDF:  0.5·erfc(-z/√2) on the left, 1 - 0.5·erfc(z/√2) on the right
     if z < 0.0 {
         0.5 * erfc(-z / SQRT_2)
     } else {
@@ -1048,8 +1048,8 @@ pub fn normal_pdf_scalar(z: f64) -> f64 {
 ///
 /// Accuracy:
 /// - Centre and bulk (e.g. 0.025 ≤ q ≤ 0.975): |err| < 1e-14 (equivalent to scipy.stats.norm.ppf, confirmed by unit tests).
-/// - Extreme tails (q ≲ 1e-10 or q ≳ 1–1e-10): |err| < 1e-12 compared to SciPy reference values.
-/// - **Reciprocal symmetry:** |Φ⁻¹(q) + Φ⁻¹(1–q)| is only guaranteed < 1e-7 in the extreme tails,  
+/// - Extreme tails (q ≲ 1e-10 or q ≳ 1-1e-10): |err| < 1e-12 compared to SciPy reference values.
+/// - **Reciprocal symmetry:** |Φ⁻¹(q) + Φ⁻¹(1-q)| is only guaranteed < 1e-7 in the extreme tails,  
 ///   due to inherent limitations of the underlying algorithms and double-precision arithmetic.
 ///   This limitation is observed in SciPy as well as this implementation.
 /// ```

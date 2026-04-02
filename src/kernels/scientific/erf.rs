@@ -278,7 +278,7 @@ fn fabs(x: f64) -> f64 {
 
 // SIMD implementation of erf / erfc
 //
-// * works for any `LANES` that the backend supports (2 – 64)
+// * works for any `LANES` that the backend supports (2 - 64)
 // * full double precision everywhere (|err| < 2 ulp over ℝ)
 // * correct IEEE handling for NaN / ±∞
 //
@@ -399,8 +399,8 @@ where
 
     let hx = hi_u32(ax); // region decisions
     let region1 = hx.simd_lt(Simd::splat(0x3feb0000)); // |x| < 0.84375
-    let region2 = hx.simd_ge(Simd::splat(0x3feb0000)) & hx.simd_lt(Simd::splat(0x3ff40000)); // 0.84375–1.25
-    let region3 = hx.simd_ge(Simd::splat(0x3ff40000)) & hx.simd_lt(Simd::splat(0x40180000)); // 1.25–6
+    let region2 = hx.simd_ge(Simd::splat(0x3feb0000)) & hx.simd_lt(Simd::splat(0x3ff40000)); // 0.84375-1.25
+    let region3 = hx.simd_ge(Simd::splat(0x3ff40000)) & hx.simd_lt(Simd::splat(0x40180000)); // 1.25-6
     let region5 = hx.simd_ge(Simd::splat(0x40180000)); // |x| ≥ 6
 
     // --- result accumulator ------------------------------------------
@@ -507,7 +507,7 @@ where
         }
     }
 
-    // region-5 already covered – but ±∞ & NaN still need explicit fix-up
+    // region-5 already covered - but ±∞ & NaN still need fix-up
     let infmask = x.is_infinite();
     y = infmask.select(sign, y);
     y = x.is_nan().select(x, y);
@@ -524,8 +524,8 @@ where
     let hx = hi_u32(ax);
 
     let r1_mask = hx.simd_lt(Simd::splat(0x3feb0000)); // |x|<0.84375
-    let r2_mask = hx.simd_ge(Simd::splat(0x3feb0000)) & hx.simd_lt(Simd::splat(0x3ff40000)); // 0.84375–1.25
-    let r3_mask = hx.simd_ge(Simd::splat(0x3ff40000)) & hx.simd_lt(Simd::splat(0x40180000)); // 1.25–6
+    let r2_mask = hx.simd_ge(Simd::splat(0x3feb0000)) & hx.simd_lt(Simd::splat(0x3ff40000)); // 0.84375-1.25
+    let r3_mask = hx.simd_ge(Simd::splat(0x3ff40000)) & hx.simd_lt(Simd::splat(0x40180000)); // 1.25-6
     let r5_mask = hx.simd_ge(Simd::splat(0x40180000)); // |x|≥6
 
     let mut out = Simd::splat(0.0);
@@ -673,7 +673,7 @@ pub fn erfc_inv(p: f64) -> f64 {
     } // erfc⁻¹(0)  = +∞
     if p >= 2.0 {
         return -f64::INFINITY;
-    } // erfc⁻¹(2)  = –∞
+    } // erfc⁻¹(2)  = -∞
     if p == 1.0 {
         return 0.0;
     } // centre

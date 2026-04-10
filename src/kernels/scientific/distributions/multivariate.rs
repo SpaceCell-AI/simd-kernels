@@ -1086,36 +1086,282 @@ pub fn inv_wishart_sample(
 // Matrix Normal
 /// Compute probability density function of matrix normal distribution.
 ///
-/// Matrix normal distribution MN(M, U, V) where X is m×n, M is mean matrix,
-/// U is row covariance, and V is column covariance.
+/// Matrix normal distribution MN(M, U, V) where X is n×p, M is the mean matrix,
+/// U is the n×n row covariance, and V is the p×p column covariance.
 ///
-/// Currently unimplemented - reserved for future release.
+/// log f(X|M,U,V) = -np/2 ln(2π) - n/2 ln|V| - p/2 ln|U| - ½ tr(V⁻¹(X-M)ᵀU⁻¹(X-M))
+///
+/// Returns a length-1 FloatArray containing the PDF value.
 pub fn matrix_normal_pdf(
-    _x: Vec<&[f64]>,
-    _mean: Vec<&[f64]>,
-    _row_cov: Vec<&[f64]>,
-    _col_cov: Vec<&[f64]>,
-    _null_mask: Option<&Bitmask>,
-    _null_count: Option<usize>,
+    x: Vec64<&[f64]>,
+    mean: Vec64<&[f64]>,
+    row_cov: Vec64<&[f64]>,
+    col_cov: Vec64<&[f64]>,
+    null_mask: Option<&Bitmask>,
+    null_count: Option<usize>,
 ) -> Result<FloatArray<f64>, KernelError> {
-    unimplemented!("This function will be implemented in a future release")
+    if null_mask.is_some() || null_count.is_some() {
+        return Err(KernelError::InvalidArguments(
+            "Null mask support is not yet implemented for multivariate distributions".into(),
+        ));
+    }
+
+    let n = x.len();
+    if n == 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: x must be non-empty".into(),
+        ));
+    }
+    let p = x[0].len();
+    if p == 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: x rows must be non-empty".into(),
+        ));
+    }
+    if x.iter().any(|r| r.len() != p) {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: all x rows must have equal length".into(),
+        ));
+    }
+    if mean.len() != n || mean.iter().any(|r| r.len() != p) {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: mean must be n×p".into(),
+        ));
+    }
+    if row_cov.len() != n || row_cov.iter().any(|r| r.len() != n) {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: row_cov (U) must be n×n".into(),
+        ));
+    }
+    if col_cov.len() != p || col_cov.iter().any(|r| r.len() != p) {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: col_cov (V) must be p×p".into(),
+        ));
+    }
+
+    // Cholesky factor U (n×n), stored column-major
+    let mut u_chol = Vec64::with_capacity(n * n);
+    for j in 0..n {
+        for i in 0..n {
+            u_chol.push(row_cov[i][j]);
+        }
+    }
+    let mut info = 0;
+    unsafe { dpotrf(b'L', n as i32, &mut u_chol, n as i32, &mut info) };
+    if info != 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: row_cov (U) not positive-definite".into(),
+        ));
+    }
+
+    // Cholesky factor V (p×p), stored column-major
+    let mut v_chol = Vec64::with_capacity(p * p);
+    for j in 0..p {
+        for i in 0..p {
+            v_chol.push(col_cov[i][j]);
+        }
+    }
+    unsafe { dpotrf(b'L', p as i32, &mut v_chol, p as i32, &mut info) };
+    if info != 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: col_cov (V) not positive-definite".into(),
+        ));
+    }
+
+    // log|U| = 2 ∑ ln(L_U_ii), log|V| = 2 ∑ ln(L_V_ii)
+    let mut log_det_u = 0.0;
+    for i in 0..n {
+        log_det_u += u_chol[i + i * n].ln();
+    }
+    log_det_u *= 2.0;
+
+    let mut log_det_v = 0.0;
+    for i in 0..p {
+        log_det_v += v_chol[i + i * p].ln();
+    }
+    log_det_v *= 2.0;
+
+    // D = X - M in column-major (n×p)
+    let mut d_cm = Vec64::with_capacity(n * p);
+    for j in 0..p {
+        for i in 0..n {
+            d_cm.push(x[i][j] - mean[i][j]);
+        }
+    }
+
+    // Solve U · A = D for A = U⁻¹D (column-major n×p)
+    let mut a_cm = d_cm.clone();
+    unsafe {
+        dpotrs(b'L', n as i32, p as i32, &u_chol, n as i32, &mut a_cm, n as i32, &mut info);
+    }
+    if info != 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: failed to solve U⁻¹D".into(),
+        ));
+    }
+
+    // Transpose D to column-major Dᵀ (p×n), then solve V · Y = Dᵀ
+    let mut dt_cm = Vec64::with_capacity(p * n);
+    for j in 0..n {
+        for i in 0..p {
+            dt_cm.push(d_cm[j + i * n]);
+        }
+    }
+    unsafe {
+        dpotrs(b'L', p as i32, n as i32, &v_chol, p as i32, &mut dt_cm, p as i32, &mut info);
+    }
+    if info != 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_pdf: failed to solve V⁻¹Dᵀ".into(),
+        ));
+    }
+    // dt_cm now holds Y = V⁻¹ Dᵀ in column-major (p×n)
+
+    // trace = tr(V⁻¹ Dᵀ U⁻¹ D) = ∑_{i,j} A[i,j] · Y[j,i]
+    //   A is n×p in a_cm: A[i,j] = a_cm[i + j*n]
+    //   Y is p×n in dt_cm: Y[j,i] = dt_cm[j + i*p]
+    let mut trace = 0.0;
+    for i in 0..n {
+        for j in 0..p {
+            trace += a_cm[i + j * n] * dt_cm[j + i * p];
+        }
+    }
+
+    // log f = -np/2 ln(2π) - n/2 ln|V| - p/2 ln|U| - ½ trace
+    let np_f = (n * p) as f64;
+    let log_pdf = -0.5 * np_f * (2.0 * PI).ln()
+        - 0.5 * (n as f64) * log_det_v
+        - 0.5 * (p as f64) * log_det_u
+        - 0.5 * trace;
+
+    let mut out = Vec64::with_capacity(1);
+    out.push(log_pdf.exp());
+    Ok(FloatArray::from_vec64(out, None))
 }
 
-/// Generate samples from matrix normal distribution.
+/// Generate samples from matrix normal distribution MN(M, U, V).
 ///
-/// Samples from matrix normal distribution MN(M, U, V) where M is mean matrix,
-/// U is row covariance, and V is column covariance.
+/// Each sample X = M + L_U · Z · L_Vᵀ where Z has iid N(0,1) entries,
+/// L_U · L_Uᵀ = U (row covariance), and L_V · L_Vᵀ = V (column covariance).
 ///
-/// Currently unimplemented - reserved for future release.
+/// Returns one Vec64 of n FloatArrays (rows of length p) per sample.
 pub fn matrix_normal_sample(
-    _mean: Vec<&[f64]>,
-    _row_cov: Vec<&[f64]>,
-    _col_cov: Vec<&[f64]>,
-    _n_samples: usize,
-    _null_mask: Option<&Bitmask>,
-    _null_count: Option<usize>,
-) -> Result<Vec<Vec64<FloatArray<f64>>>, KernelError> {
-    unimplemented!("This function will be implemented in a future release")
+    mean: Vec64<&[f64]>,
+    row_cov: Vec64<&[f64]>,
+    col_cov: Vec64<&[f64]>,
+    n_samples: usize,
+    null_mask: Option<&Bitmask>,
+    null_count: Option<usize>,
+) -> Result<Vec64<Vec64<FloatArray<f64>>>, KernelError> {
+    if null_mask.is_some() || null_count.is_some() {
+        return Err(KernelError::InvalidArguments(
+            "Null mask support is not yet implemented for multivariate distributions".into(),
+        ));
+    }
+
+    let n = mean.len();
+    if n == 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_sample: mean must be non-empty".into(),
+        ));
+    }
+    let p = mean[0].len();
+    if p == 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_sample: mean rows must be non-empty".into(),
+        ));
+    }
+    if mean.iter().any(|r| r.len() != p) {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_sample: all mean rows must have equal length".into(),
+        ));
+    }
+    if row_cov.len() != n || row_cov.iter().any(|r| r.len() != n) {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_sample: row_cov (U) must be n×n".into(),
+        ));
+    }
+    if col_cov.len() != p || col_cov.iter().any(|r| r.len() != p) {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_sample: col_cov (V) must be p×p".into(),
+        ));
+    }
+    if n_samples == 0 {
+        return Ok(Vec64::new());
+    }
+
+    // Cholesky factor U = L_U · L_Uᵀ (column-major n×n)
+    let mut u_chol = Vec64::with_capacity(n * n);
+    for j in 0..n {
+        for i in 0..n {
+            u_chol.push(row_cov[i][j]);
+        }
+    }
+    let mut info = 0;
+    unsafe { dpotrf(b'L', n as i32, &mut u_chol, n as i32, &mut info) };
+    if info != 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_sample: row_cov (U) not positive-definite".into(),
+        ));
+    }
+
+    // Cholesky factor V = L_V · L_Vᵀ (column-major p×p)
+    let mut v_chol = Vec64::with_capacity(p * p);
+    for j in 0..p {
+        for i in 0..p {
+            v_chol.push(col_cov[i][j]);
+        }
+    }
+    unsafe { dpotrf(b'L', p as i32, &mut v_chol, p as i32, &mut info) };
+    if info != 0 {
+        return Err(KernelError::InvalidArguments(
+            "matrix_normal_sample: col_cov (V) not positive-definite".into(),
+        ));
+    }
+
+    let mut sampler = Sampler::new();
+    let mut all = Vec64::with_capacity(n_samples);
+
+    for _ in 0..n_samples {
+        // Z: n×p iid standard normals, stored column-major
+        let mut z_cm = Vec64::with_capacity(n * p);
+        for _ in 0..n * p {
+            z_cm.push(sampler.sample_standard_normal());
+        }
+
+        // W = L_U · Z (n×p), L_U lower-triangular in u_chol
+        // W[i,j] = ∑_{k=0..i} L_U[i,k] · Z[k,j]
+        let mut w_cm = Vec64::<f64>::with_capacity(n * p);
+        w_cm.resize(n * p, 0.0);
+        for j in 0..p {
+            for i in 0..n {
+                let mut sum = 0.0;
+                for k in 0..=i {
+                    sum += u_chol[i + k * n] * z_cm[k + j * n];
+                }
+                w_cm[i + j * n] = sum;
+            }
+        }
+
+        // X = M + W · L_Vᵀ (n×p)
+        // L_Vᵀ[k,j] = L_V[j,k] = v_chol[j + k*p], nonzero for k <= j
+        // (W · L_Vᵀ)[i,j] = ∑_{k=0..j} W[i,k] · L_V[j,k]
+        let mut rows = Vec64::with_capacity(n);
+        for i in 0..n {
+            let mut row = Vec64::with_capacity(p);
+            for j in 0..p {
+                let mut sum = mean[i][j];
+                for k in 0..=j {
+                    sum += w_cm[i + k * n] * v_chol[j + k * p];
+                }
+                row.push(sum);
+            }
+            rows.push(FloatArray::from_vec64(row, None));
+        }
+        all.push(rows);
+    }
+
+    Ok(all)
 }
 
 /// Dirichlet PDF
@@ -1434,31 +1680,33 @@ pub fn categorical_sample(
 
 /// Compute probability density function of multivariate Beta (Dirichlet) distribution.
 ///
-/// For input vectors on the simplex (each component ≥ 0, sum = 1),
-/// computes f(x; α) = Γ(∑α_i) / ∏Γ(α_i) · ∏ x_i^(α_i - 1).
+/// For input vectors on the simplex (each component >= 0, sum = 1),
+/// computes f(x; alpha) = Gamma(sum alpha_i) / prod Gamma(alpha_i) * prod x_i^(alpha_i - 1).
 ///
-/// Currently unimplemented - reserved for future release.
+/// The multivariate Beta distribution is the Dirichlet distribution. Delegates to it.
 pub fn multivariate_beta_pdf(
-    _x: &[f64],
-    _alpha: &[f64],
-    _null_mask: Option<&Bitmask>,
-    _null_count: Option<usize>,
+    x: &[f64],
+    alpha: &[f64],
+    null_mask: Option<&Bitmask>,
+    null_count: Option<usize>,
 ) -> Result<FloatArray<f64>, KernelError> {
-    unimplemented!("This function will be implemented in a future release")
+    dirichlet_pdf(x, alpha, null_mask, null_count)
 }
+
 /// Generate samples from multivariate Beta (Dirichlet) distribution.
 ///
 /// Generates random samples from the Dirichlet distribution with concentration
-/// parameters α, producing vectors on the probability simplex.
+/// parameters alpha, producing vectors on the probability simplex.
 ///
-/// Currently unimplemented - reserved for future release.
+/// The multivariate Beta distribution is the Dirichlet distribution. Delegates to it.
 pub fn multivariate_beta_sample(
-    _alpha: &[f64],
-    _n_samples: usize,
-    _null_mask: Option<&Bitmask>,
-    _null_count: Option<usize>,
-) -> Result<Vec<FloatArray<f64>>, KernelError> {
-    unimplemented!("This function will be implemented in a future release")
+    alpha: &[f64],
+    n_samples: usize,
+    null_mask: Option<&Bitmask>,
+    null_count: Option<usize>,
+) -> Result<Vec64<FloatArray<f64>>, KernelError> {
+    let samples = dirichlet_sample(alpha, n_samples, null_mask, null_count)?;
+    Ok(samples.into_iter().collect())
 }
 
 /// Multivariate log-normal PDF:
@@ -1790,4 +2038,368 @@ pub fn multivariate_gamma_sample(
         samples.push(FloatArray::from_vec64(v, None));
     }
     Ok(samples)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_close(a: f64, b: f64, tol: f64) {
+        assert!(
+            (a - b).abs() < tol,
+            "expected {} near {} (tol={})",
+            a, b, tol
+        );
+    }
+
+    // ── MVN ──
+
+    #[test]
+    fn mvn_pdf_standard_2d_at_origin() {
+        // 2D standard normal at origin: (2π)^{-1} = 0.15915...
+        let x = vec![0.0, 0.0];
+        let mean = vec![0.0, 0.0];
+        let cov = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let cov_refs: Vec<&[f64]> = cov.iter().map(|r| r.as_slice()).collect();
+        let result = mvn_pdf(&x, &mean, cov_refs, None, None).unwrap();
+        assert_close(result.data[0], 1.0 / (2.0 * PI), 1e-15);
+    }
+
+    #[test]
+    fn mvn_logpdf_matches_ln_pdf() {
+        let x = vec![1.0, -0.5];
+        let mean = vec![0.0, 0.0];
+        let cov = vec![vec![1.0, 0.3], vec![0.3, 1.0]];
+        let cov_refs: Vec<&[f64]> = cov.iter().map(|r| r.as_slice()).collect();
+        let pdf = mvn_pdf(&x, &mean, cov_refs.clone(), None, None).unwrap();
+        let logpdf = mvn_logpdf(&x, &mean, cov_refs, None, None).unwrap();
+        assert_close(logpdf.data[0], pdf.data[0].ln(), 1e-15);
+    }
+
+    #[test]
+    fn mvn_pdf_not_positive_definite() {
+        let x = vec![0.0, 0.0];
+        let mean = vec![0.0, 0.0];
+        let cov = vec![vec![1.0, 1.0], vec![1.0, 1.0]];
+        let cov_refs: Vec<&[f64]> = cov.iter().map(|r| r.as_slice()).collect();
+        assert!(mvn_pdf(&x, &mean, cov_refs, None, None).is_err());
+    }
+
+    #[test]
+    fn mvn_sample_correct_dimensionality() {
+        let mean = vec![0.0, 0.0, 0.0];
+        let cov = vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0], vec![0.0, 0.0, 1.0]];
+        let cov_refs: Vec<&[f64]> = cov.iter().map(|r| r.as_slice()).collect();
+        let samples = mvn_sample(&mean, cov_refs, 50, None, None).unwrap();
+        assert_eq!(samples.len(), 50);
+        for s in &samples {
+            assert_eq!(s.data.len(), 3);
+        }
+    }
+
+    #[test]
+    fn mvn_pdf_multiple_observations() {
+        let mean = vec![0.0, 0.0];
+        let cov = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let cov_refs: Vec<&[f64]> = cov.iter().map(|r| r.as_slice()).collect();
+        // 3 observations of 2D vectors
+        let x = vec![0.0, 0.0, 1.0, 0.0, 0.0, 1.0];
+        let result = mvn_pdf(&x, &mean, cov_refs, None, None).unwrap();
+        assert_eq!(result.data.len(), 3);
+        // Origin has highest density
+        assert!(result.data[0] > result.data[1]);
+        // Symmetric: (1,0) and (0,1) have equal density under identity cov
+        assert_close(result.data[1], result.data[2], 1e-15);
+    }
+
+    // ── MVT ──
+
+    #[test]
+    fn mvt_pdf_high_df_approaches_mvn() {
+        let x = vec![0.5, -0.5];
+        let mean = vec![0.0, 0.0];
+        let scale = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let scale_refs: Vec<&[f64]> = scale.iter().map(|r| r.as_slice()).collect();
+        let cov_refs: Vec<&[f64]> = scale.iter().map(|r| r.as_slice()).collect();
+
+        let t_pdf = mvt_pdf(&x, &mean, scale_refs, 1000.0, None, None).unwrap();
+        let n_pdf = mvn_pdf(&x, &mean, cov_refs, None, None).unwrap();
+        assert_close(t_pdf.data[0], n_pdf.data[0], 1e-3);
+    }
+
+    #[test]
+    fn mvt_logpdf_matches_ln_pdf() {
+        let x = vec![0.0, 0.0];
+        let mean = vec![0.0, 0.0];
+        let scale = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let scale_refs: Vec<&[f64]> = scale.iter().map(|r| r.as_slice()).collect();
+        let pdf = mvt_pdf(&x, &mean, scale_refs.clone(), 5.0, None, None).unwrap();
+        let logpdf = mvt_logpdf(&x, &mean, scale_refs, 5.0, None, None).unwrap();
+        assert_close(logpdf.data[0], pdf.data[0].ln(), 1e-15);
+    }
+
+    #[test]
+    fn mvt_pdf_invalid_df() {
+        let x = vec![0.0];
+        let mean = vec![0.0];
+        let scale = vec![vec![1.0]];
+        let scale_refs: Vec<&[f64]> = scale.iter().map(|r| r.as_slice()).collect();
+        assert!(mvt_pdf(&x, &mean, scale_refs, -1.0, None, None).is_err());
+    }
+
+    // ── Wishart ──
+
+    #[test]
+    fn wishart_pdf_identity_positive() {
+        let x_flat = vec![1.0, 0.0, 0.0, 1.0];
+        let scale = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let scale_refs: Vec<&[f64]> = scale.iter().map(|r| r.as_slice()).collect();
+        let result = wishart_pdf(vec![x_flat.as_slice()], 3.0, scale_refs, None, None).unwrap();
+        assert!(result.data[0] > 0.0);
+    }
+
+    #[test]
+    fn wishart_sample_symmetric() {
+        let scale = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let scale_refs: Vec<&[f64]> = scale.iter().map(|r| r.as_slice()).collect();
+        let samples = wishart_sample(4.0, scale_refs, 10, None, None).unwrap();
+        assert_eq!(samples.len(), 10);
+        for mat in &samples {
+            assert_eq!(mat.len(), 2);
+            assert_close(mat[0].data[1], mat[1].data[0], 1e-10);
+        }
+    }
+
+    // ── Inv Wishart ──
+
+    #[test]
+    fn inv_wishart_pdf_identity_positive() {
+        let x = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let x_refs: Vec<&[f64]> = x.iter().map(|r| r.as_slice()).collect();
+        let scale = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let scale_refs: Vec<&[f64]> = scale.iter().map(|r| r.as_slice()).collect();
+        let result = inv_wishart_pdf(x_refs, 4.0, scale_refs, None, None).unwrap();
+        assert!(result.data[0] > 0.0);
+    }
+
+    // ── Matrix Normal ──
+
+    #[test]
+    fn matrix_normal_pdf_at_mean_is_mode() {
+        let mean = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let mean_refs: Vec64<&[f64]> = mean.iter().map(|r| r.as_slice()).collect();
+        let row_cov = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let row_refs: Vec64<&[f64]> = row_cov.iter().map(|r| r.as_slice()).collect();
+        let col_cov = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let col_refs: Vec64<&[f64]> = col_cov.iter().map(|r| r.as_slice()).collect();
+
+        let at_mean = matrix_normal_pdf(
+            mean_refs.clone(), mean_refs.clone(), row_refs.clone(), col_refs.clone(), None, None,
+        ).unwrap();
+
+        let shifted = vec![vec![2.0, 2.0], vec![3.0, 4.0]];
+        let shifted_refs: Vec64<&[f64]> = shifted.iter().map(|r| r.as_slice()).collect();
+        let away = matrix_normal_pdf(
+            shifted_refs, mean_refs, row_refs, col_refs, None, None,
+        ).unwrap();
+
+        assert!(at_mean.data[0] > away.data[0]);
+    }
+
+    #[test]
+    fn matrix_normal_sample_correct_shape() {
+        let mean = vec![vec![0.0, 0.0, 0.0]]; // 1x3
+        let mean_refs: Vec64<&[f64]> = mean.iter().map(|r| r.as_slice()).collect();
+        let row_cov = vec![vec![1.0]]; // 1x1
+        let row_refs: Vec64<&[f64]> = row_cov.iter().map(|r| r.as_slice()).collect();
+        let col_cov = vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0], vec![0.0, 0.0, 1.0]];
+        let col_refs: Vec64<&[f64]> = col_cov.iter().map(|r| r.as_slice()).collect();
+
+        let samples = matrix_normal_sample(mean_refs, row_refs, col_refs, 20, None, None).unwrap();
+        assert_eq!(samples.len(), 20);
+        for mat in samples.iter() {
+            assert_eq!(mat.len(), 1);
+            assert_eq!(mat[0].data.len(), 3);
+        }
+    }
+
+    #[test]
+    fn matrix_normal_pdf_not_positive_definite() {
+        let mean = vec![vec![0.0]];
+        let mean_refs: Vec64<&[f64]> = mean.iter().map(|r| r.as_slice()).collect();
+        let bad_cov = vec![vec![0.0]];
+        let bad_refs: Vec64<&[f64]> = bad_cov.iter().map(|r| r.as_slice()).collect();
+        let good_cov = vec![vec![1.0]];
+        let good_refs: Vec64<&[f64]> = good_cov.iter().map(|r| r.as_slice()).collect();
+        assert!(matrix_normal_pdf(
+            mean_refs.clone(), mean_refs, bad_refs, good_refs, None, None
+        ).is_err());
+    }
+
+    // ── Dirichlet ──
+
+    #[test]
+    fn dirichlet_pdf_uniform_on_simplex() {
+        // Dir(1,1,1) is uniform on the 2-simplex, PDF = Gamma(3)/(Gamma(1))^3 = 2
+        // 1e-14: ln_gamma + exp accumulation loses a digit at this value
+        let x = vec![1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0];
+        let alpha = vec![1.0, 1.0, 1.0];
+        let result = dirichlet_pdf(&x, &alpha, None, None).unwrap();
+        assert_close(result.data[0], 2.0, 1e-14);
+    }
+
+    #[test]
+    fn dirichlet_pdf_x_not_on_simplex() {
+        let x = vec![0.5, 0.6]; // sums to 1.1
+        let alpha = vec![1.0, 1.0];
+        assert!(dirichlet_pdf(&x, &alpha, None, None).is_err());
+    }
+
+    #[test]
+    fn dirichlet_sample_sums_to_one() {
+        let alpha = vec![2.0, 3.0, 5.0];
+        let samples = dirichlet_sample(&alpha, 100, None, None).unwrap();
+        assert_eq!(samples.len(), 100);
+        for s in &samples {
+            let sum: f64 = s.data.iter().copied().sum();
+            assert_close(sum, 1.0, 1e-15);
+            for &v in s.data.as_slice() {
+                assert!(v >= 0.0);
+            }
+        }
+    }
+
+    // ── Multivariate Beta ──
+
+    #[test]
+    fn multivariate_beta_matches_dirichlet() {
+        let x = vec![0.2, 0.3, 0.5];
+        let alpha = vec![2.0, 3.0, 4.0];
+        let beta_result = multivariate_beta_pdf(&x, &alpha, None, None).unwrap();
+        let dir_result = dirichlet_pdf(&x, &alpha, None, None).unwrap();
+        assert_close(beta_result.data[0], dir_result.data[0], 1e-15);
+    }
+
+    // ── Multinomial ──
+
+    #[test]
+    fn multinomial_pmf_coin_flip() {
+        // P(2H, 1T | n=3, p=[0.5, 0.5]) = 3!/(2!1!) * 0.5^2 * 0.5^1 = 0.375
+        let x = vec![2.0, 1.0];
+        let p = vec![0.5, 0.5];
+        let result = multinomial_pmf(&x, 3, &p, None, None).unwrap();
+        assert_close(result.data[0], 0.375, 1e-15);
+    }
+
+    #[test]
+    fn multinomial_pmf_counts_must_sum_to_n() {
+        let x = vec![1.0, 1.0]; // sums to 2, not 3
+        let p = vec![0.5, 0.5];
+        assert!(multinomial_pmf(&x, 3, &p, None, None).is_err());
+    }
+
+    #[test]
+    fn multinomial_sample_counts_sum_to_n() {
+        let p = vec![0.25, 0.25, 0.5];
+        let samples = multinomial_sample(10, &p, 50, None, None).unwrap();
+        for s in &samples {
+            let sum: f64 = s.data.iter().copied().sum();
+            assert_close(sum, 10.0, 1e-15);
+        }
+    }
+
+    // ── Categorical ──
+
+    #[test]
+    fn categorical_pmf_returns_correct_probability() {
+        let p = vec![0.1, 0.3, 0.6];
+        let result = categorical_pmf(2, &p, None, None).unwrap();
+        assert_close(result.data[0], 0.6, 1e-15);
+    }
+
+    #[test]
+    fn categorical_pmf_out_of_range() {
+        let p = vec![0.5, 0.5];
+        assert!(categorical_pmf(5, &p, None, None).is_err());
+    }
+
+    #[test]
+    fn categorical_sample_within_range() {
+        let p = vec![0.2, 0.3, 0.5];
+        let samples = categorical_sample(&p, 200, None, None).unwrap();
+        for &s in &samples {
+            assert!(s < 3);
+        }
+    }
+
+    // ── MV Lognormal ──
+
+    #[test]
+    fn mv_lognormal_pdf_zero_input() {
+        let x = vec![0.0, 1.0];
+        let mean = vec![0.0, 0.0];
+        let cov = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let cov_refs: Vec<&[f64]> = cov.iter().map(|r| r.as_slice()).collect();
+        let result = mv_lognormal_pdf(&x, &mean, cov_refs, None, None).unwrap();
+        assert_close(result.data[0], 0.0, 1e-15);
+    }
+
+    #[test]
+    fn mv_lognormal_sample_all_positive() {
+        let mean = vec![0.0, 0.0];
+        let cov = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
+        let cov_refs: Vec<&[f64]> = cov.iter().map(|r| r.as_slice()).collect();
+        let samples = mv_lognormal_sample(&mean, cov_refs, 100, None, None).unwrap();
+        for s in &samples {
+            for &v in s.data.as_slice() {
+                assert!(v > 0.0, "lognormal samples must be strictly positive");
+            }
+        }
+    }
+
+    // ── MV Gamma ──
+
+    #[test]
+    fn multivariate_gamma_pdf_positive() {
+        let x = vec![1.0, 2.0];
+        let shape = vec![2.0, 3.0];
+        let scale = vec![1.0, 1.0];
+        let result = multivariate_gamma_pdf(&x, &shape, &scale, None, None).unwrap();
+        assert!(result.data[0] > 0.0);
+    }
+
+    #[test]
+    fn multivariate_gamma_pdf_matches_product_of_univariates() {
+        // f(x) = prod of Gamma(x_i; shape_i, scale_i)
+        // For shape=2, scale=1: f(x) = x * exp(-x)
+        let x = vec![1.0, 2.0];
+        let shape = vec![2.0, 2.0];
+        let scale = vec![1.0, 1.0];
+        let result = multivariate_gamma_pdf(&x, &shape, &scale, None, None).unwrap();
+        let expected = (1.0 * (-1.0_f64).exp()) * (2.0 * (-2.0_f64).exp());
+        assert_close(result.data[0], expected, 1e-15);
+    }
+
+    #[test]
+    fn multivariate_gamma_sample_all_positive() {
+        let shape = vec![2.0, 3.0, 0.5];
+        let scale = vec![1.0, 2.0, 0.5];
+        let samples = multivariate_gamma_sample(&shape, &scale, 100, None, None).unwrap();
+        assert_eq!(samples.len(), 100);
+        for s in &samples {
+            assert_eq!(s.data.len(), 3);
+            for &v in s.data.as_slice() {
+                assert!(v > 0.0, "gamma samples must be strictly positive");
+            }
+        }
+    }
+
+    #[test]
+    fn multivariate_gamma_pdf_nonpositive_x_is_zero() {
+        let x = vec![-1.0, 2.0];
+        let shape = vec![2.0, 2.0];
+        let scale = vec![1.0, 1.0];
+        let result = multivariate_gamma_pdf(&x, &shape, &scale, None, None).unwrap();
+        assert_close(result.data[0], 0.0, 1e-15);
+    }
 }

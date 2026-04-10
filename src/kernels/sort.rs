@@ -11,10 +11,19 @@
 //! Regular sorts here alter the actual data.
 //! The argsort variants return the indices.
 
+include!(concat!(env!("OUT_DIR"), "/simd_lanes.rs"));
+
 use std::cmp::Ordering;
 
+#[cfg(feature = "simd")]
+use std::simd::{
+    Mask, Select, Simd,
+    cmp::SimdPartialOrd,
+    num::{SimdFloat, SimdUint},
+};
+
 use minarrow::{Bitmask, BooleanArray, CategoricalArray, Integer, MaskedArray, Vec64};
-use num_traits::{Float, NumCast, Zero};
+use num_traits::{Float, NumCast, ToPrimitive, Zero};
 
 /// Sort algorithm selection for argsort operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -1200,6 +1209,392 @@ pub fn argsort_auto_u64(data: &[u64], config: &ArgsortConfig) -> Vec<usize> {
     }
 }
 
+// Pre-sorted detection
+//
+// O(n) scan to check whether a slice is already sorted, avoiding the O(n log n) sort
+// when data arrives pre-ordered. The integer variants use explicit std::simd to compare
+// N adjacent pairs per iteration. Float variants use total_cmp_f for NaN-consistent
+// ordering which prevents SIMD vectorisation, so they use scalar loops with early exit.
+
+// SIMD sortedness check for integer types.
+// Loads `data[i..i+N]` and `data[i+1..i+1+N]` into SIMD vectors, then checks
+// `simd_le` (ascending) or `simd_ge` (descending) across all lanes at once.
+#[cfg(feature = "simd")]
+macro_rules! impl_is_sorted_simd {
+    ($fn_asc:ident, $fn_desc:ident, $fn_dir:ident, $ty:ty, $lanes:expr, $mask_elem:ty) => {
+        /// SIMD-accelerated ascending sortedness check.
+        ///
+        /// Compares N adjacent pairs per iteration by loading overlapping
+        /// SIMD vectors from `data[i..i+N]` and `data[i+1..i+1+N]`.
+        #[inline]
+        pub fn $fn_asc(data: &[$ty]) -> bool {
+            let len = data.len();
+            if len <= 1 {
+                return true;
+            }
+            const N: usize = $lanes;
+            let pairs = len - 1;
+            let mut i = 0;
+
+            // Process N pairs at a time
+            while i + N < len {
+                let a = Simd::<$ty, N>::from_slice(&data[i..i + N]);
+                let b = Simd::<$ty, N>::from_slice(&data[i + 1..i + 1 + N]);
+                let ok: std::simd::Mask<$mask_elem, N> = a.simd_le(b);
+                if !ok.all() {
+                    return false;
+                }
+                i += N;
+            }
+            // Scalar tail
+            while i < pairs {
+                if data[i] > data[i + 1] {
+                    return false;
+                }
+                i += 1;
+            }
+            true
+        }
+
+        /// SIMD-accelerated descending sortedness check.
+        #[inline]
+        pub fn $fn_desc(data: &[$ty]) -> bool {
+            let len = data.len();
+            if len <= 1 {
+                return true;
+            }
+            const N: usize = $lanes;
+            let pairs = len - 1;
+            let mut i = 0;
+
+            while i + N < len {
+                let a = Simd::<$ty, N>::from_slice(&data[i..i + N]);
+                let b = Simd::<$ty, N>::from_slice(&data[i + 1..i + 1 + N]);
+                let ok: std::simd::Mask<$mask_elem, N> = a.simd_ge(b);
+                if !ok.all() {
+                    return false;
+                }
+                i += N;
+            }
+            while i < pairs {
+                if data[i] < data[i + 1] {
+                    return false;
+                }
+                i += 1;
+            }
+            true
+        }
+
+        /// Check if a slice is sorted in the given direction using SIMD.
+        #[inline]
+        pub fn $fn_dir(data: &[$ty], descending: bool) -> bool {
+            if descending {
+                $fn_desc(data)
+            } else {
+                $fn_asc(data)
+            }
+        }
+    };
+}
+
+#[cfg(feature = "simd")]
+impl_is_sorted_simd!(is_sorted_i32_asc, is_sorted_i32_desc, is_sorted_i32, i32, W32, i32);
+#[cfg(feature = "simd")]
+impl_is_sorted_simd!(is_sorted_i64_asc, is_sorted_i64_desc, is_sorted_i64, i64, W64, i64);
+#[cfg(feature = "simd")]
+impl_is_sorted_simd!(is_sorted_u32_asc, is_sorted_u32_desc, is_sorted_u32, u32, W32, i32);
+#[cfg(feature = "simd")]
+impl_is_sorted_simd!(is_sorted_u64_asc, is_sorted_u64_desc, is_sorted_u64, u64, W64, i64);
+
+// Scalar fallbacks when SIMD is disabled
+#[cfg(not(feature = "simd"))]
+macro_rules! impl_is_sorted_scalar {
+    ($fn_asc:ident, $fn_desc:ident, $fn_dir:ident, $ty:ty) => {
+        /// Scalar ascending sortedness check.
+        #[inline]
+        pub fn $fn_asc(data: &[$ty]) -> bool {
+            data.windows(2).all(|w| w[0] <= w[1])
+        }
+
+        /// Scalar descending sortedness check.
+        #[inline]
+        pub fn $fn_desc(data: &[$ty]) -> bool {
+            data.windows(2).all(|w| w[0] >= w[1])
+        }
+
+        /// Check if a slice is sorted in the given direction.
+        #[inline]
+        pub fn $fn_dir(data: &[$ty], descending: bool) -> bool {
+            if descending { $fn_desc(data) } else { $fn_asc(data) }
+        }
+    };
+}
+
+#[cfg(not(feature = "simd"))]
+impl_is_sorted_scalar!(is_sorted_i32_asc, is_sorted_i32_desc, is_sorted_i32, i32);
+#[cfg(not(feature = "simd"))]
+impl_is_sorted_scalar!(is_sorted_i64_asc, is_sorted_i64_desc, is_sorted_i64, i64);
+#[cfg(not(feature = "simd"))]
+impl_is_sorted_scalar!(is_sorted_u32_asc, is_sorted_u32_desc, is_sorted_u32, u32);
+#[cfg(not(feature = "simd"))]
+impl_is_sorted_scalar!(is_sorted_u64_asc, is_sorted_u64_desc, is_sorted_u64, u64);
+
+/// Generic ascending sortedness check for any Ord type.
+///
+/// Scalar-only. Use the typed variants (is_sorted_i32, etc.) for SIMD acceleration.
+#[inline]
+pub fn is_sorted_int_asc<T: Ord>(data: &[T]) -> bool {
+    if data.len() <= 1 {
+        return true;
+    }
+    data.windows(2).all(|w| w[0] <= w[1])
+}
+
+/// Generic descending sortedness check for any Ord type.
+#[inline]
+pub fn is_sorted_int_desc<T: Ord>(data: &[T]) -> bool {
+    if data.len() <= 1 {
+        return true;
+    }
+    data.windows(2).all(|w| w[0] >= w[1])
+}
+
+/// Generic sortedness check for any Ord type in the given direction.
+#[inline]
+pub fn is_sorted_int<T: Ord>(data: &[T], descending: bool) -> bool {
+    if descending {
+        is_sorted_int_desc(data)
+    } else {
+        is_sorted_int_asc(data)
+    }
+}
+
+// SIMD float is_sorted using the same total-ordering key transform as total_cmp_f.
+//
+// The trick: reinterpret float bits as unsigned integer, then apply a branchless
+// key transform so that unsigned comparison gives IEEE 754 total ordering:
+//   - negative floats (sign bit set): invert all bits
+//   - positive floats (sign bit clear): flip only the sign bit
+// This maps the float number line onto the unsigned integer number line,
+// so simd_le on the keys == total_cmp_f <= on the floats, with NaN after +inf.
+
+#[cfg(feature = "simd")]
+macro_rules! impl_is_sorted_float_simd {
+    ($fn_asc:ident, $fn_desc:ident, $fn_dir:ident,
+     $fty:ty, $uty:ty, $ity:ty, $lanes:expr, $sign_mask:expr) => {
+        /// SIMD-accelerated ascending sortedness check for floats.
+        ///
+        /// Uses the same total-ordering key transform as `total_cmp_f`:
+        /// reinterpret as unsigned, conditionally negate based on sign bit,
+        /// then compare N adjacent pairs at once with `simd_le`.
+        #[inline]
+        pub fn $fn_asc(data: &[$fty]) -> bool {
+            let len = data.len();
+            if len <= 1 {
+                return true;
+            }
+            const N: usize = $lanes;
+            let sign_mask = Simd::<$uty, N>::splat($sign_mask);
+            let pairs = len - 1;
+            let mut i = 0;
+
+            while i + N < len {
+                let a = Simd::<$fty, N>::from_slice(&data[i..i + N]);
+                let b = Simd::<$fty, N>::from_slice(&data[i + 1..i + 1 + N]);
+
+                // Transform to sort keys via the total_cmp_f bit trick
+                let bits_a: Simd<$uty, N> = a.to_bits();
+                let bits_b: Simd<$uty, N> = b.to_bits();
+
+                // Sign check: cast to signed and compare < 0
+                let neg_a: Mask<$ity, N> = bits_a.cast::<$ity>().simd_lt(Simd::splat(0));
+                let neg_b: Mask<$ity, N> = bits_b.cast::<$ity>().simd_lt(Simd::splat(0));
+
+                // Branchless key: negative -> !bits, positive -> bits ^ sign_mask
+                let key_a: Simd<$uty, N> = neg_a.select(!bits_a, bits_a ^ sign_mask);
+                let key_b: Simd<$uty, N> = neg_b.select(!bits_b, bits_b ^ sign_mask);
+
+                if !key_a.simd_le(key_b).all() {
+                    return false;
+                }
+                i += N;
+            }
+            // Scalar tail using the existing total_cmp_f
+            while i < pairs {
+                if total_cmp_f(&data[i], &data[i + 1]) == Ordering::Greater {
+                    return false;
+                }
+                i += 1;
+            }
+            true
+        }
+
+        /// SIMD-accelerated descending sortedness check for floats.
+        #[inline]
+        pub fn $fn_desc(data: &[$fty]) -> bool {
+            let len = data.len();
+            if len <= 1 {
+                return true;
+            }
+            const N: usize = $lanes;
+            let sign_mask = Simd::<$uty, N>::splat($sign_mask);
+            let pairs = len - 1;
+            let mut i = 0;
+
+            while i + N < len {
+                let a = Simd::<$fty, N>::from_slice(&data[i..i + N]);
+                let b = Simd::<$fty, N>::from_slice(&data[i + 1..i + 1 + N]);
+
+                let bits_a: Simd<$uty, N> = a.to_bits();
+                let bits_b: Simd<$uty, N> = b.to_bits();
+
+                let neg_a: Mask<$ity, N> = bits_a.cast::<$ity>().simd_lt(Simd::splat(0));
+                let neg_b: Mask<$ity, N> = bits_b.cast::<$ity>().simd_lt(Simd::splat(0));
+
+                let key_a: Simd<$uty, N> = neg_a.select(!bits_a, bits_a ^ sign_mask);
+                let key_b: Simd<$uty, N> = neg_b.select(!bits_b, bits_b ^ sign_mask);
+
+                if !key_a.simd_ge(key_b).all() {
+                    return false;
+                }
+                i += N;
+            }
+            while i < pairs {
+                if total_cmp_f(&data[i], &data[i + 1]) == Ordering::Less {
+                    return false;
+                }
+                i += 1;
+            }
+            true
+        }
+
+        /// Check if a float slice is sorted in the given direction using SIMD.
+        #[inline]
+        pub fn $fn_dir(data: &[$fty], descending: bool) -> bool {
+            if descending { $fn_desc(data) } else { $fn_asc(data) }
+        }
+    };
+}
+
+#[cfg(feature = "simd")]
+impl_is_sorted_float_simd!(
+    is_sorted_f32_asc, is_sorted_f32_desc, is_sorted_f32,
+    f32, u32, i32, W32, 0x8000_0000u32
+);
+#[cfg(feature = "simd")]
+impl_is_sorted_float_simd!(
+    is_sorted_f64_asc, is_sorted_f64_desc, is_sorted_f64,
+    f64, u64, i64, W64, 0x8000_0000_0000_0000u64
+);
+
+// Scalar fallbacks when SIMD is disabled
+#[cfg(not(feature = "simd"))]
+macro_rules! impl_is_sorted_float_scalar {
+    ($fn_asc:ident, $fn_desc:ident, $fn_dir:ident, $fty:ty) => {
+        /// Scalar ascending sortedness check for floats using total_cmp_f.
+        #[inline]
+        pub fn $fn_asc(data: &[$fty]) -> bool {
+            data.windows(2)
+                .all(|w| total_cmp_f(&w[0], &w[1]) != Ordering::Greater)
+        }
+
+        /// Scalar descending sortedness check for floats using total_cmp_f.
+        #[inline]
+        pub fn $fn_desc(data: &[$fty]) -> bool {
+            data.windows(2)
+                .all(|w| total_cmp_f(&w[0], &w[1]) != Ordering::Less)
+        }
+
+        /// Check if a float slice is sorted in the given direction.
+        #[inline]
+        pub fn $fn_dir(data: &[$fty], descending: bool) -> bool {
+            if descending { $fn_desc(data) } else { $fn_asc(data) }
+        }
+    };
+}
+
+#[cfg(not(feature = "simd"))]
+impl_is_sorted_float_scalar!(is_sorted_f32_asc, is_sorted_f32_desc, is_sorted_f32, f32);
+#[cfg(not(feature = "simd"))]
+impl_is_sorted_float_scalar!(is_sorted_f64_asc, is_sorted_f64_desc, is_sorted_f64, f64);
+
+/// Generic ascending sortedness check for any Float type using total ordering.
+///
+/// Scalar-only. Use the typed variants (is_sorted_f32, is_sorted_f64) for SIMD acceleration.
+#[inline]
+pub fn is_sorted_float_asc<T: Float>(data: &[T]) -> bool {
+    if data.len() <= 1 {
+        return true;
+    }
+    data.windows(2)
+        .all(|w| total_cmp_f(&w[0], &w[1]) != Ordering::Greater)
+}
+
+/// Generic descending sortedness check for any Float type using total ordering.
+#[inline]
+pub fn is_sorted_float_desc<T: Float>(data: &[T]) -> bool {
+    if data.len() <= 1 {
+        return true;
+    }
+    data.windows(2)
+        .all(|w| total_cmp_f(&w[0], &w[1]) != Ordering::Less)
+}
+
+/// Generic sortedness check for any Float type in the given direction.
+#[inline]
+pub fn is_sorted_float<T: Float>(data: &[T], descending: bool) -> bool {
+    if descending {
+        is_sorted_float_desc(data)
+    } else {
+        is_sorted_float_asc(data)
+    }
+}
+
+/// Check if a string slice is sorted in the given direction.
+#[inline]
+pub fn is_sorted_str(data: &[&str], descending: bool) -> bool {
+    if data.len() <= 1 {
+        return true;
+    }
+    if descending {
+        data.windows(2).all(|w| w[0] >= w[1])
+    } else {
+        data.windows(2).all(|w| w[0] <= w[1])
+    }
+}
+
+/// Check if a StringArray (offset-based) is sorted in the given direction.
+///
+/// Generic over the offset type T to support both String32 (u32 offsets)
+/// and String64 (u64 offsets) without conversion.
+pub fn is_sorted_string_array<T>(offsets: &[T], values: &[u8], descending: bool) -> bool
+where
+    T: Copy + ToPrimitive,
+{
+    let n = if offsets.is_empty() {
+        0
+    } else {
+        offsets.len() - 1
+    };
+    if n <= 1 {
+        return true;
+    }
+
+    for i in 0..n - 1 {
+        let a_start = offsets[i].to_usize().unwrap();
+        let a_end = offsets[i + 1].to_usize().unwrap();
+        let b_end = offsets[i + 2].to_usize().unwrap();
+        let a = &values[a_start..a_end];
+        let b = &values[a_end..b_end];
+        // Byte comparison is equivalent to UTF-8 lexicographic comparison
+        let cmp = a.cmp(b);
+        if (descending && cmp == Ordering::Less) || (!descending && cmp == Ordering::Greater) {
+            return false;
+        }
+    }
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use minarrow::vec64;
@@ -2286,6 +2681,189 @@ mod tests {
             let indices = argsort_auto_i32(&data, &config);
             let sorted: Vec<i32> = indices.iter().map(|&i| data[i]).collect();
             assert_eq!(sorted, vec![1, 2, 5, 8, 9]);
+        }
+
+        // is_sorted tests
+
+        #[test]
+        fn test_is_sorted_i32_ascending() {
+            assert!(is_sorted_i32(&[1i32, 2, 3, 4, 5], false));
+            assert!(!is_sorted_i32(&[1i32, 3, 2, 4, 5], false));
+            assert!(is_sorted_i32(&[1i32, 1, 2, 2, 3], false));
+        }
+
+        #[test]
+        fn test_is_sorted_i32_descending() {
+            assert!(is_sorted_i32(&[5i32, 4, 3, 2, 1], true));
+            assert!(!is_sorted_i32(&[5i32, 3, 4, 2, 1], true));
+            assert!(is_sorted_i32(&[3i32, 3, 2, 2, 1], true));
+        }
+
+        #[test]
+        fn test_is_sorted_i64_ascending() {
+            assert!(is_sorted_i64(&[10i64, 20, 30, 40, 50], false));
+            assert!(!is_sorted_i64(&[10i64, 30, 20, 40, 50], false));
+        }
+
+        #[test]
+        fn test_is_sorted_u32_ascending() {
+            assert!(is_sorted_u32(&[0u32, 1, 2, 3, 100], false));
+            assert!(!is_sorted_u32(&[0u32, 2, 1, 3, 100], false));
+        }
+
+        #[test]
+        fn test_is_sorted_u64_descending() {
+            assert!(is_sorted_u64(&[100u64, 50, 25, 10, 1], true));
+            assert!(!is_sorted_u64(&[100u64, 50, 60, 10, 1], true));
+        }
+
+        #[test]
+        fn test_is_sorted_edge_cases() {
+            // Empty and single element
+            assert!(is_sorted_i32(&[], false));
+            assert!(is_sorted_i32(&[42], false));
+            assert!(is_sorted_i32(&[], true));
+            assert!(is_sorted_i32(&[42], true));
+
+            // Two elements
+            assert!(is_sorted_i32(&[1, 2], false));
+            assert!(!is_sorted_i32(&[2, 1], false));
+            assert!(is_sorted_i32(&[2, 1], true));
+            assert!(!is_sorted_i32(&[1, 2], true));
+
+            // All equal
+            assert!(is_sorted_i32(&[5, 5, 5, 5], false));
+            assert!(is_sorted_i32(&[5, 5, 5, 5], true));
+        }
+
+        #[test]
+        fn test_is_sorted_i32_large_array() {
+            // Larger than one SIMD width to exercise the vectorised path + tail
+            let ascending: Vec<i32> = (0..200).collect();
+            assert!(is_sorted_i32(&ascending, false));
+            assert!(!is_sorted_i32(&ascending, true));
+
+            let descending: Vec<i32> = (0..200).rev().collect();
+            assert!(is_sorted_i32(&descending, true));
+            assert!(!is_sorted_i32(&descending, false));
+
+            // Sorted except last element
+            let mut almost: Vec<i32> = (0..200).collect();
+            almost[199] = 0;
+            assert!(!is_sorted_i32(&almost, false));
+        }
+
+        #[test]
+        fn test_is_sorted_f64_ascending() {
+            assert!(is_sorted_f64(&[1.0f64, 2.0, 3.0, 4.0, 5.0], false));
+            assert!(!is_sorted_f64(&[1.0f64, 3.0, 2.0, 4.0, 5.0], false));
+        }
+
+        #[test]
+        fn test_is_sorted_f64_descending() {
+            assert!(is_sorted_f64(&[5.0f64, 4.0, 3.0, 2.0, 1.0], true));
+            assert!(!is_sorted_f64(&[5.0f64, 3.0, 4.0, 2.0, 1.0], true));
+        }
+
+        #[test]
+        fn test_is_sorted_f64_nan() {
+            // NaN sorts after +inf in total ordering
+            let with_nan = [1.0f64, 2.0, f64::INFINITY, f64::NAN];
+            assert!(is_sorted_f64(&with_nan, false));
+
+            // NaN first is not ascending
+            let nan_first = [f64::NAN, 1.0, 2.0];
+            assert!(!is_sorted_f64(&nan_first, false));
+
+            // NaN then descending values is descending
+            let nan_desc = [f64::NAN, f64::INFINITY, 2.0, 1.0];
+            assert!(is_sorted_f64(&nan_desc, true));
+        }
+
+        #[test]
+        fn test_is_sorted_f64_negatives() {
+            assert!(is_sorted_f64(&[-3.0f64, -2.0, -1.0, 0.0, 1.0], false));
+            assert!(!is_sorted_f64(&[-3.0f64, -1.0, -2.0, 0.0, 1.0], false));
+            assert!(is_sorted_f64(&[1.0f64, 0.0, -1.0, -2.0, -3.0], true));
+        }
+
+        #[test]
+        fn test_is_sorted_f64_special_values() {
+            // -inf < negatives < -0 < +0 < positives < +inf < NaN
+            let special = [
+                f64::NEG_INFINITY,
+                -1.0,
+                -0.0f64,
+                0.0,
+                1.0,
+                f64::INFINITY,
+                f64::NAN,
+            ];
+            assert!(is_sorted_f64(&special, false));
+        }
+
+        #[test]
+        fn test_is_sorted_f32_ascending() {
+            assert!(is_sorted_f32(&[1.0f32, 2.0, 3.0], false));
+            assert!(!is_sorted_f32(&[1.0f32, 3.0, 2.0], false));
+        }
+
+        #[test]
+        fn test_is_sorted_f64_large_array() {
+            // Larger than SIMD width to exercise the vectorised path
+            let ascending: Vec<f64> = (0..200).map(|i| i as f64).collect();
+            assert!(is_sorted_f64(&ascending, false));
+            assert!(!is_sorted_f64(&ascending, true));
+
+            let descending: Vec<f64> = (0..200).rev().map(|i| i as f64).collect();
+            assert!(is_sorted_f64(&descending, true));
+            assert!(!is_sorted_f64(&descending, false));
+        }
+
+        #[test]
+        fn test_is_sorted_str() {
+            assert!(is_sorted_str(&["a", "b", "c"], false));
+            assert!(!is_sorted_str(&["a", "c", "b"], false));
+            assert!(is_sorted_str(&["c", "b", "a"], true));
+            assert!(is_sorted_str(&[], false));
+            assert!(is_sorted_str(&["x"], true));
+        }
+
+        #[test]
+        fn test_is_sorted_string_array() {
+            // "apple" "banana" "cherry" - ascending
+            let values = b"applebananacherry";
+            let offsets: &[u32] = &[0, 5, 11, 17];
+            assert!(is_sorted_string_array(offsets, values, false));
+            assert!(!is_sorted_string_array(offsets, values, true));
+
+            // "cherry" "banana" "apple" - descending
+            let values2 = b"cherrybananaapple";
+            let offsets2: &[u32] = &[0, 6, 12, 17];
+            assert!(is_sorted_string_array(offsets2, values2, true));
+            assert!(!is_sorted_string_array(offsets2, values2, false));
+
+            // Works with u64 offsets too (String64)
+            let offsets_u64: &[u64] = &[0, 5, 11, 17];
+            assert!(is_sorted_string_array(offsets_u64, values, false));
+        }
+
+        #[test]
+        fn test_is_sorted_generic_int() {
+            // Generic version (scalar-only, any Ord type)
+            assert!(is_sorted_int(&[1i8, 2, 3], false));
+            assert!(!is_sorted_int(&[3i8, 1, 2], false));
+            assert!(is_sorted_int::<i8>(&[], false));
+            assert!(is_sorted_int(&[42i8], true));
+        }
+
+        #[test]
+        fn test_is_sorted_generic_float() {
+            // Generic version (scalar-only, any Float type)
+            assert!(is_sorted_float(&[1.0f64, 2.0, 3.0], false));
+            assert!(!is_sorted_float(&[3.0f64, 1.0, 2.0], false));
+            assert!(is_sorted_float::<f64>(&[], false));
+            assert!(is_sorted_float(&[f64::NAN], true));
         }
     }
 }

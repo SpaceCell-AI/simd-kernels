@@ -462,10 +462,48 @@ pub fn bidiag_reduction(
     }
 }
 
-/// Completes the SVD of a bidiagonal matrix produced by `bidiag_reduction`.
-#[inline(always)]
-pub fn svd_qr_iter() {
-    todo!()
+/// Extracts singular values from a bidiagonal matrix produced by `bidiag_reduction`.
+///
+/// Takes the diagonal `d` and superdiagonal `e` from the Golub-Kahan bidiagonalisation
+/// and computes the singular values via LAPACK's QR iteration (dbdsqr).
+/// Singular values are returned in descending order in `d`.
+///
+/// This is the second phase of two-phase SVD, useful for streaming/incremental
+/// decomposition where bidiagonalisation happens per-chunk and the final QR
+/// iteration runs once on the accumulated bidiagonal form.
+pub fn svd_from_bidiag(
+    n: i32,
+    d: &mut [f64],
+    e: &mut [f64],
+) -> Result<(), &'static str> {
+    use lapack::dbdsqr;
+
+    if d.len() < n as usize { return Err("d too small for dbdsqr"); }
+    if n > 1 && e.len() < (n - 1) as usize { return Err("e too small for dbdsqr"); }
+
+    let mut work = vec![0.0_f64; 4 * n as usize];
+    let mut info = 0;
+
+    // Upper bidiagonal, singular values only (no U/V update)
+    unsafe {
+        dbdsqr(
+            b'U', n,
+            &[0], &[0], &[0],                  // ncvt, nru, ncc = 0 means no vectors
+            d, e,
+            &mut [], 1,                         // vt not used
+            &mut [], 1,                         // u not used
+            &mut [], 1,                         // c not used
+            &mut work, &mut info,
+        );
+    }
+
+    if info == 0 {
+        Ok(())
+    } else if info > 0 {
+        Err("dbdsqr did not converge")
+    } else {
+        Err("dbdsqr invalid argument")
+    }
 }
 
 /// Computes the full or economy-size SVD of `A` in one shot.

@@ -30,6 +30,8 @@ use minarrow::{
     Array, Bitmask, BooleanAVT, BooleanArray, CategoricalAVT, Integer, MaskedArray, Numeric,
     NumericArray, StringAVT, TextArray, Vec64,
 };
+#[cfg(feature = "datetime")]
+use minarrow::TemporalArray;
 
 #[cfg(not(feature = "simd"))]
 use crate::kernels::bitmask::dispatch::{and_masks, or_masks, xor_masks};
@@ -1017,12 +1019,29 @@ pub fn in_array(input: &Array, values: &Array) -> Result<BooleanArray<()>, Kerne
             Array::TextArray(TextArray::Categorical32(a)),
             Array::TextArray(TextArray::Categorical32(b)),
         ) => cmp_dict_in((**a).tuple_ref(0, a.len()), (**b).tuple_ref(0, b.len())),
-        _ => unimplemented!(),
+        #[cfg(feature = "large_string")]
+        (Array::TextArray(TextArray::String64(a)), Array::TextArray(TextArray::String64(b))) => {
+            cmp_str_in((**a).tuple_ref(0, a.len()), (**b).tuple_ref(0, b.len()))
+        }
+        #[cfg(feature = "datetime")]
+        (
+            Array::TemporalArray(TemporalArray::Datetime32(a)),
+            Array::TemporalArray(TemporalArray::Datetime32(b)),
+        ) => cmp_in_mask(&a.data, &b.data, a.null_mask.as_ref()),
+        #[cfg(feature = "datetime")]
+        (
+            Array::TemporalArray(TemporalArray::Datetime64(a)),
+            Array::TemporalArray(TemporalArray::Datetime64(b)),
+        ) => cmp_in_mask(&a.data, &b.data, a.null_mask.as_ref()),
+        (input, values) => Err(KernelError::TypeMismatch(format!(
+            "in_array: unsupported type combination ({:?}, {:?})",
+            std::mem::discriminant(input), std::mem::discriminant(values),
+        ))),
     }
 }
 
-#[inline(always)]
 /// Test non-membership of array elements in values set, dispatching by array type.
+#[inline(always)]
 pub fn not_in_array(input: &Array, values: &Array) -> Result<BooleanArray<()>, KernelError> {
     let result = in_array(input, values)?;
     Ok(!result)

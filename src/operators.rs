@@ -6,7 +6,6 @@
 
 
 /// Arithmetic operators for numeric computations.
-// TODO: This is unused?
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArithmeticOperator {
     /// Addition (`lhs + rhs`)

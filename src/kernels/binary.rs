@@ -58,6 +58,34 @@ fn full_bool_bitmask(len_bits: usize) -> Bitmask {
     Bitmask::new_set_all(len_bits, true)
 }
 
+/// Merge two optional bitmasks at given offsets into a new output mask,
+/// avoiding intermediate slice_clone allocations when both masks are present.
+#[inline]
+fn merge_bitmasks_at_offsets(
+    lhs: Option<&Bitmask>,
+    loff: usize,
+    rhs: Option<&Bitmask>,
+    roff: usize,
+    len: usize,
+) -> Option<Bitmask> {
+    match (lhs, rhs) {
+        (None, None) => None,
+        (Some(m), None) => Some(m.slice_clone(loff, len)),
+        (None, Some(m)) => Some(m.slice_clone(roff, len)),
+        (Some(l), Some(r)) => {
+            #[cfg(feature = "simd")]
+            {
+                use minarrow::kernels::bitmask::simd::and_masks_simd;
+                Some(and_masks_simd::<W8>((l, loff, len), (r, roff, len)))
+            }
+            #[cfg(not(feature = "simd"))]
+            {
+                Some(and_masks((l, loff, len), (r, roff, len)))
+            }
+        }
+    }
+}
+
 /// Merge two optional Bitmasks into a new output mask, computing per-row AND.
 /// Returns None if both inputs are None (output is dense).
 #[inline]
@@ -587,10 +615,11 @@ pub fn apply_cmp_str_dict<T: Integer, U: Integer>(
     let (rarr, roff, rlen) = rhs;
     assert_eq!(llen, rlen, "apply_cmp_str_dict: slice lengths must match");
 
-    // TODO: Avoid double clone - merge/slice bitmasks in one go
-    let lmask = larr.null_mask.as_ref().map(|m| m.slice_clone(loff, llen));
-    let rmask = rarr.null_mask.as_ref().map(|m| m.slice_clone(roff, rlen));
-    let null_mask = merge_bitmasks_to_new(lmask.as_ref(), rmask.as_ref(), llen);
+    let null_mask = merge_bitmasks_at_offsets(
+        larr.null_mask.as_ref(), loff,
+        rarr.null_mask.as_ref(), roff,
+        llen,
+    );
 
     let mut out = cmp_str_dict((larr, loff, llen), (rarr, roff, rlen), op)?;
     out.null_mask = null_mask;
@@ -626,10 +655,11 @@ pub fn apply_cmp_dict_str<T: Integer, U: Integer>(
     let (rarr, roff, rlen) = rhs;
     assert_eq!(llen, rlen, "apply_cmp_dict_str: slice lengths must match");
 
-    // TODO: Avoid double clone - merge/slice bitmasks in one go
-    let lmask = larr.null_mask.as_ref().map(|m| m.slice_clone(loff, llen));
-    let rmask = rarr.null_mask.as_ref().map(|m| m.slice_clone(roff, rlen));
-    let null_mask = merge_bitmasks_to_new(lmask.as_ref(), rmask.as_ref(), llen);
+    let null_mask = merge_bitmasks_at_offsets(
+        larr.null_mask.as_ref(), loff,
+        rarr.null_mask.as_ref(), roff,
+        llen,
+    );
 
     let mut out = cmp_dict_str((larr, loff, llen), (rarr, roff, rlen), op)?;
     out.null_mask = null_mask;
